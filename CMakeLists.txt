@@ -68,7 +68,9 @@ if(ORGANVST_BUILD_PLUGIN)
       "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/MinGWTaskExecutor.cpp"
       "${CMAKE_CURRENT_SOURCE_DIR}/src/platform/MinGWDirectComposition.cpp")
     target_include_directories(vstgui PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/.deps/vst3sdk/vstgui4")
-    target_link_libraries(vstgui PUBLIC d3d11)
+    # GCC does not honor the MSVC #pragma comment(lib, ...) directives.
+    target_link_libraries(vstgui PUBLIC d3d11 d2d1 dwrite windowscodecs
+      dwmapi shlwapi imm32 opengl32 glu32 ole32 oleaut32 uuid gdi32 comdlg32)
     add_executable(windows_ui_tasks tests/windows_ui_tasks.cpp src/platform/MinGWTaskExecutor.cpp)
     target_include_directories(windows_ui_tasks PRIVATE .deps/vst3sdk/vstgui4)
     target_compile_definitions(windows_ui_tasks PRIVATE UNICODE _UNICODE)
@@ -78,6 +80,11 @@ if(ORGANVST_BUILD_PLUGIN)
   endif()
   set(public_sdk_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.deps/vst3sdk/public.sdk")
   smtg_add_vst3plugin(OrganVST src/plugin/Entry.cpp src/plugin/Processor.cpp src/plugin/Controller.cpp src/plugin/Services.cpp)
+  if(MINGW)
+    # The SDK sets per-config output directories only for multi-config generators.
+    set_target_properties(OrganVST PROPERTIES LIBRARY_OUTPUT_DIRECTORY
+      "${CMAKE_BINARY_DIR}/VST3/$<CONFIG>/OrganVST.vst3/Contents/x86_64-win")
+  endif()
   target_include_directories(OrganVST PRIVATE src)
   target_link_libraries(OrganVST PRIVATE organ_engine sdk vstgui_support)
   if(APPLE)

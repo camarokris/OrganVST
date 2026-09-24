@@ -47,7 +47,8 @@ jobs:
         run: |
           set -o pipefail
           pacman -Q > logs/windows-packages.txt
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS_RELEASE="-O2 -g -DNDEBUG" \
             -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ \
             -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON 2>&1 | tee logs/configure.log
       - name: Build and validate
