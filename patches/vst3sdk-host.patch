@@ -1,0 +1,22 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index f006a70..6caf7df 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -41,6 +41,17 @@ set(pluginterfaces_SOURCE_DIR ${SDK_ROOT}/pluginterfaces)
+ 
+ if(SMTG_ENABLE_VSTGUI_SUPPORT)
+     set(VSTGUI_ENABLE_WAYLAND_SUPPORT ${SMTG_ENABLE_WAYLAND_SUPPORT})
++    # OrganVST embeds VSTGUI; its standalone application layer is not needed
++    # and does not define source files for MinGW.
++    if(MINGW)
++        macro(smtg_add_vstgui_subdirectory vstgui_SOURCE_DIR)
++            set(VSTGUI_DISABLE_UNITTESTS 1)
++            set(VSTGUI_STANDALONE_EXAMPLES OFF)
++            set(VSTGUI_STANDALONE OFF)
++            set(VSTGUI_TOOLS OFF)
++            add_subdirectory(${vstgui_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/VSTGUI.build)
++        endmacro()
++    endif()
+     smtg_enable_vstgui_support(VSTGUI_SOURCE_DIR "${ROOT}/vstgui4")
+ endif()
+ 

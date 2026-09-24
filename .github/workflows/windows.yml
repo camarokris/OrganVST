@@ -53,7 +53,7 @@ jobs:
       - name: Build and validate
         run: |
           set -o pipefail
-          cmake --build build --parallel 4 2>&1 | tee logs/build.log
+          cmake --build build --parallel 4 -- -k 0 2>&1 | tee logs/build.log
       - name: Engine and recovery tests
         run: |
           set -o pipefail

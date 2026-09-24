@@ -99,7 +99,7 @@ def main():
     with zipfile.ZipFile(args.output/'OrganVST-corresponding-project-source.zip','w',zipfile.ZIP_DEFLATED) as z:
         for directory, prefix in [(ROOT,'OrganVST'),(ROOT/'.deps/grandorgue','OrganVST/.deps/grandorgue'),
                                   (ROOT/'.deps/vst3sdk','OrganVST/.deps/vst3sdk')]:
-            names = output('git','ls-files','--recurse-submodules',cwd=directory).splitlines()
+            names = output('git','ls-files','-z','--recurse-submodules',cwd=directory).split('\0')
             for name in names:
                 path=directory/name
                 if path.is_file():
