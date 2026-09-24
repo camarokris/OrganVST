@@ -165,6 +165,7 @@ void Controller::control(unsigned index,bool value) {
   auto m=owned(allocateMessage());if(!m)return;m->setMessageID("control");
   m->getAttributes()->setInt("generation",generation);m->getAttributes()->setInt("index",index);m->getAttributes()->setInt("value",value?1:0);
   sendMessage(m);
+  setDirty(true);
   if(index<actual.size())actual[index]=value;
   if(index<128) {
     auto id=stopBase+index;beginEdit(id);setParamNormalized(id,value?1:0);performEdit(id,value?1:0);endEdit(id);
@@ -178,7 +179,8 @@ void Controller::audition(int channel,int pitch) {
 void Controller::route(int channel) {
   if(!ready)return;
   auto m=owned(allocateMessage());if(!m)return;m->setMessageID("route");
-  m->getAttributes()->setInt("generation",generation);m->getAttributes()->setInt("channel",channel);sendMessage(m);
+  m->getAttributes()->setInt("generation",generation);m->getAttributes()->setInt("channel",channel);
+  if(sendMessage(m)==kResultOk)setDirty(true);
 }
 tresult PLUGIN_API Controller::notify(IMessage* m) {
   if(m && std::strcmp(m->getMessageID(),"status")==0) {
