@@ -131,3 +131,9 @@ filtering, all-control UI/state, defaults, MIDI audition, immutable sample shari
 and editor frame lifetime. Local tests and focused REAPER recall/duplication pass.
 Windows run 35960861796 at a98467d passed build, native tests, packaging and SDK
 validation. Version 0.2 colleague FL Studio retesting remains outstanding.
+
+## Silent divisions follow-up
+
+The colleague's 0.2 Barton retest reports improved organization and no crashes but
+silent divisions. See docs/SILENT_DIVISIONS_PLAN.md for input routing, short-keyboard
+audition, diagnostic and regression-test work. FL Studio causality is not yet proven.

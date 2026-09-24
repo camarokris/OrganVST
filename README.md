@@ -50,8 +50,13 @@ couplers, switches and tremulants. Generated internal couplers are excluded.
 The first 128 catalog entries are connected to the 128 Boolean DAW parameters;
 controls beyond those slots remain fully usable and saved through the editor.
 Use Previous/Next within a division; the division list has its own paging.
-The editor shows each division’s MIDI channel and provides a short audition note. MIDI channels 1–15 address successive manuals;
-channel 16 addresses the pedalboard when present. Output is stereo only so far.
+The editor shows each division's MIDI channel/range and the last received note.
+Use **Play this division** to route all incoming channels to the selected division,
+or **Use MIDI channels** for manuals 1–15 and pedalboard 16. The explicit route is
+saved; merely browsing divisions does not change it. Audition provides a selectable
+pitch for short toy keyboards as well as ordinary manuals. See
+[the Windows testing guide](docs/WINDOWS_TESTING.md) for Barton toy pitches.
+Output is stereo only so far.
 
 The plugin has separate processor/controller components, sample-offset event
 processing, versioned path/gain/keyed-control project state, and rotating background logs.
@@ -67,7 +72,8 @@ same plugin process; voices, registration, loop/release metadata and auxiliary
 buffers remain per instance. Separate sandbox processes cannot share this cache.
 The cache compares content, so changed sample data cannot reuse stale bytes.
 
-Version 0.2 restores all exposed controls by stable definition keys. Old 0.1
+Version 0.3 saves the input route and reads 0.2 keyed registrations unchanged.
+Both restore all exposed controls by stable definition keys. Old 0.1
 projects restore their pack and gain with authored registration defaults because
 the old control indices included internal couplers. Recheck old automation lanes
 and registrations; use a new test project for this alpha.

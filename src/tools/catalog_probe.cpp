@@ -25,12 +25,14 @@ int main(int argc,char** argv) {
     if(argc>3) {
       if(std::string(argv[3])=="audition") {
         for(unsigned i=0;i<surface->controls.size();++i)first->stop(i,false);
-        for(int channel:{15,0,1,2}) {
+        for(int channel:{15,0,1,2,3,4,5,6,7,8}) {
           unsigned selected=unsigned(surface->controls.size());
           for(unsigned i=0;i<surface->controls.size();++i)
             if(surface->controls[i].channel==channel && surface->controls[i].kind=="Stop"){selected=i;break;}
           require(selected<surface->controls.size(),"Missing representative division");
-          first->stop(selected,true);surface->audition.store(channel);first->applyCommands();
+          first->stop(selected,true);const auto& control=surface->controls[selected];
+          const unsigned pitch=control.firstNote<=60&&control.lastNote>=60?60:control.firstNote;
+          surface->audition.store(channel*128+pitch);first->applyCommands();
           double e=energy(*first);require(e>0,"Representative division audition is silent");
           energy(*first,2400);require(energy(*first)==0,"Representative audition tail did not end");
           first->stop(selected,false);
@@ -54,7 +56,8 @@ int main(int argc,char** argv) {
     first->stop(find("Late voice"),false);first->stop(find("Switch voice"),true);
     first->note(1,60,100);require(energy(*first)>0,"Switch-controlled rank silent");first->panic();energy(*first,2400);
     first->stop(find("Switch voice"),false);
-    surface->audition.store(2);first->applyCommands();require(energy(*first)>0,"Auxiliary division audition silent");energy(*first,2400);require(energy(*first)==0,"Audition did not release");
+    require(surface->controls[find("Aux voice")].firstNote==36 && surface->controls[find("Aux voice")].lastNote==37,"Auxiliary note range incorrect");
+    surface->audition.store(2*128+36);first->applyCommands();require(energy(*first)>0,"Auxiliary division audition silent");energy(*first,2400);require(energy(*first)==0,"Audition did not release");
     auto before=sampleCacheStats();
     OrganInstance second(argv[1],argv[2],GO_RESOURCE_DIR,48000,progress);
     auto after=sampleCacheStats();require(after.bytes==before.bytes&&after.reused>before.reused,"Duplicate instance copied immutable payloads");

@@ -1,7 +1,9 @@
 # FL Studio colleague testing checklist
 
 Status: the first colleague report found catalog duplication/truncation and silent
-controls in 0.1. Version 0.2 colleague retesting is pending. Use the alpha artifact from a successful
+controls in 0.1. The 0.2 report found good organization and no crashes but silent Barton divisions.
+Version 0.3 adds explicit input routing and selectable low-key audition; retesting
+is pending. Use the alpha artifact from a successful
 Windows VST3 alpha workflow run. That run must pass Steinberg validation and
 include dependencies, symbols, and licenses. Failed runs provide build evidence
 only; they do not provide an approved test package.
@@ -11,7 +13,13 @@ interface, driver, sample rate, buffer size, and organ pack/version.
 
 - Scan the plugin and insert it in a blank project; save the scan report.
 - Load a pack; confirm progress and useful errors for missing assets.
-- Play each manual/pedal assignment; toggle stops and couplers.
+- Play each manual/pedal assignment; toggle stops and couplers. For each failure,
+  record separately whether Audition and FL Studio notes are silent, the selected
+  route, received MIDI channel/note, stop names, and displayed note range.
+- Try Play this division with channel-1 input for each group, then Use MIDI channels.
+  Follow INSTALL-AND-TEST.md for Barton toy pitches and native channel assignments.
+- Change the input route while holding a note; confirm it releases, and verify
+  that the new route survives saving/reopening with the editor closed.
 - Check sustained notes, release tails, ordinary percussion, and authored repeats.
 - Test 44.1/48/96 kHz, small and large buffers, dense registrations and long playback.
 - Test mapped automation and auxiliary outputs after these features are implemented.

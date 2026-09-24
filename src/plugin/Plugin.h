@@ -49,6 +49,8 @@ private:
   OrganInstance* active_=nullptr;
   std::array<std::atomic<double>,128> stops_{};
   std::atomic<double> gain_{0.5};
+  std::atomic<int> inputDivision_{-1},lastInput_{-1};
+  int activeInputDivision_=-1; // audio thread only
   std::thread loader_;
 };
 
@@ -64,10 +66,12 @@ public:
   void cancelLoad();
   void exportDiagnostics(const std::string&);
   void control(unsigned,bool);
-  void audition(int);
+  void audition(int,int);
+  void route(int);
   std::string status="No organ loaded",metadata;
   unsigned generation=0;
   bool ready=false;
+  int inputDivision=-1,lastInput=-1;
   std::vector<bool> actual;
   std::vector<ControlDescriptor> catalog;
 };

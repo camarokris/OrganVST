@@ -74,7 +74,12 @@ OrganInstance::OrganInstance(const std::filesystem::path& definition,
     organ_.PreparePlayback();
     organ_.StartPlayback();
     surface_=std::make_shared<ControlSurface>();
-    for(const auto& c:controls_)surface_->controls.push_back({c.key,c.name,c.group,c.kind,c.channel});
+    for(const auto& c:controls_) {
+      auto* manual=c.channel>=0?manuals_[c.channel]:nullptr;
+      unsigned first=manual?manual->GetFirstAccessibleKeyMIDINoteNumber():0;
+      unsigned count=manual?manual->GetNumberOfAccessibleKeys():128;
+      surface_->controls.push_back({c.key,c.name,c.group,c.kind,c.channel,first,first+(count?count-1:0)});
+    }
     surface_->values=std::make_unique<ControlValue[]>(controls_.size());
     publishControls();
   } catch (...) {
@@ -105,15 +110,16 @@ void OrganInstance::applyCommands() {
     if(requested>=0)stop(i,requested!=0);
   }
   const int audition=surface_->audition.exchange(-1);
-  if(audition>=0 && audition<16) {
+  if(audition>=0 && audition<16*128) {
+    const int channel=audition/128;
     if(auditionChannel_>=0)note(auditionChannel_,auditionPitch_,0);
-    auto* manual=manuals_[audition];
+    auto* manual=manuals_[channel];
     if(!manual)return;
     const unsigned first=manual->GetFirstAccessibleKeyMIDINoteNumber();
     const unsigned count=manual->GetNumberOfAccessibleKeys();
     if(!count)return;
-    auditionPitch_=std::clamp(60u,first,first+count-1);
-    auditionChannel_=audition;auditionFrames_=rate_/2;note(audition,auditionPitch_,100);
+    auditionPitch_=std::clamp(unsigned(audition%128),first,first+count-1);
+    auditionChannel_=channel;auditionFrames_=rate_/2;note(channel,auditionPitch_,100);
   }
 }
 void OrganInstance::publishControls() {

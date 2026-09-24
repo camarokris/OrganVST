@@ -49,12 +49,39 @@ int main(int argc,char** argv) {
       state=saved(component);check(state.controls[131].second,"Control >128 missing from project state");
       Event note{};note.type=Event::kNoteOnEvent;note.busIndex=0;note.noteOn.channel=1;note.noteOn.pitch=60;note.noteOn.velocity=.8f;note.noteOn.noteId=-1;events.addEvent(note);
       double energy=0;for(unsigned i=0;i<200;++i)energy+=process();check(energy>0,"Late control produced no plugin audio");
+      // FL Studio-style channel-1 notes can explicitly address another division.
+      auto route=[&](unsigned generation,int channel){HostMessage msg;msg.setMessageID("route");msg.getAttributes()->setInt("generation",generation);msg.getAttributes()->setInt("channel",channel);return connection->notify(&msg);};
+      check(route(0,1)==kResultFalse,"Stale routing command accepted");
+      check(route(1,16)==kInvalidArgument,"Invalid input route accepted");
+      check(route(1,14)==kInvalidArgument,"Absent division accepted");
+      check(command(1,0,false)==kResultOk,"Could not disable default stop");
+      check(route(1,1)==kResultOk,"Single-division route failed");process();
+      for(unsigned i=0;i<4000;++i)process();
+      note.noteOn.channel=0;events.addEvent(note);energy=0;
+      for(unsigned i=0;i<200;++i)energy+=process();check(energy>0,"Channel-1 input did not reach second division");
+      state=saved(component);check(state.inputDivision==1,"Input route missing from state");
+      check(route(1,-1)==kResultOk,"Native channel route failed");process();
+      for(unsigned i=0;i<4000;++i)process();
+      check(process()==0,"Route change left a stuck note");
+      events.addEvent(note);energy=0;for(unsigned i=0;i<200;++i)energy+=process();
+      check(energy==0,"Native routing sent channel 1 to second division");
+      // Explicit low-key audition is independent of incoming route and channel.
+      HostMessage audition;audition.setMessageID("audition");audition.getAttributes()->setInt("generation",1);audition.getAttributes()->setInt("index",2*128+36);
+      check(connection->notify(&audition)==kResultOk,"Low-key audition command failed");
+      energy=0;for(unsigned i=0;i<200;++i)energy+=process();check(energy>0,"Short keyboard audition silent");
+      for(unsigned i=0;i<4000;++i)process();check(process()==0,"Audition left a stuck note");
       // Replace the live engine using its full keyed registration, without an editor.
       restore(state);for(unsigned i=0;i<1000;++i){process();std::this_thread::sleep_for(std::chrono::milliseconds(2));if(command(2,131,true)==kResultOk)break;}
       check(command(1,131,false)==kResultFalse,"Previous organ generation accepted");process();
       check(saved(component).controls[131].second,"Editorless registration recall failed");
+      check(saved(component).inputDivision==1,"Editorless input routing recall failed");
+      events.addEvent(note);energy=0;for(unsigned i=0;i<200;++i)energy+=process();check(energy>0,"Restored single-division route is silent");
+      // V2 has identical registration encoding without the V3 trailing route.
+      MemoryStream old;check(writeProjectState(&old,state),"Legacy fixture failed");
+      old.seek(4,IBStream::kIBSeekSet,nullptr);IBStreamer writer(&old,kLittleEndian);writer.writeInt32u(2);
+      old.seek(0,IBStream::kIBSeekSet,nullptr);ProjectState previous;check(readProjectState(&old,previous)&&previous.inputDivision==-1&&previous.controls==state.controls,"V2 registration compatibility failed");
       processor->setProcessing(false);component->setActive(false);
-      std::cout<<"PASS actual VST3 loading, defaults, stale commands, >128 playback and keyed editorless recall\n";
+      std::cout<<"PASS actual VST3 loading, defaults, stale commands, >128 playback, input routing, short-key audition, route-change tails and V2/V3 editorless recall\n";
       return 0;
     }
     throw std::runtime_error("No instrument component");

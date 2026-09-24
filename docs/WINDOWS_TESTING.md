@@ -18,9 +18,17 @@ project state, and reliable offline-load readiness are still unfinished.
    one compatible definition. No third-party organ samples are supplied.
 
 MIDI channels 1–15 address successive manuals; channel 16 is the pedalboard.
-Select a division in the left column, then enable a stop before playing. The
-channel is shown below its controls. Audition plays a half-second note without
-requiring FL Studio MIDI input. Division and control lists both have paging.
+Select a division in the left column and enable a stop. Click **Play this division**
+to send incoming notes on any MIDI channel to that division. Selecting another
+sidebar group only changes the view; click Play this division again to change the
+input route. Click **Use MIDI channels** to restore the assignments above. Changing
+routes releases held notes, and the route is saved with the project.
+
+The editor shows the division's MIDI note range and last received channel/note.
+**Audition note N** plays a half-second note without FL Studio MIDI input; the
+adjacent minus/plus buttons select its pitch. It does not automatically enable a
+stop. Notes outside the authored range remain silent. Division and control lists
+both have paging.
 This alpha has one stereo output. Ordinary
 percussion follows the definition's one-shot setting; deliberately reiterating
 ranks retain the source behavior.
@@ -30,7 +38,8 @@ loading are not yet protected against incomplete output. Recall currently saves
 the path, master gain, and all exposed controls by definition keys. Combinations
 and crescendo programming are not yet included. Version 0.1 projects reset to
 authored registration defaults; recreate/recheck their automation and registration.
-Start a fresh test project for 0.2. A missing pack must be loaded again using Load organ.
+Version 0.3 reads 0.2 registrations unchanged and defaults them to native MIDI
+channels; 0.3 saves the explicit input route too. Start a fresh test project for 0.3. A missing pack must be loaded again using Load organ.
 
 ## Diagnostics
 
@@ -60,13 +69,24 @@ Preserve all supplied licenses and source materials when sharing this alpha.
 Barton and any other independently obtained packs have separate licenses and must
 not be added to the plugin package or public repository.
 
-## Version 0.2 retest priorities
+## Version 0.3 retest priorities
 
 - Confirm Great, Solo and auxiliary divisions are available and there are no
   generated repeating 16/8/4/BAS/MEL coupler lists. Barton has 170 authored
   writable controls; legitimate controls with identical labels are kept distinct.
-- Enable a stop in each division and use Audition, then send MIDI on the displayed
-  channel. Test authored couplers with a destination division stop enabled.
+- Enable a stop in each division and use Audition, then click Play this division
+  and play FL Studio notes in the displayed numeric MIDI range. Record whether
+  Audition and host notes each work, plus the Received channel/note indicator.
+- In Use MIDI channels mode, Barton uses Accomp=1, Great=2, Solo=3, Pedal 2T=4,
+  Accomp 2T=5, Great 2T=6, Acc Traps=7, Toe Pistons=8, Console Toys=9, Pedal=16.
+  Test authored couplers with a destination division stop enabled.
+- Barton Toe Pistons has toy sounds on MIDI notes 36–42; note 43 is unmapped.
+  Enable both Looped Toys and Percussive Toys to hear all mapped toy notes.
+  Console Toys uses MIDI 36 for the bell and 37 for the triangle. Its two controls
+  are both named Bell in the definition: enable both for this test. The other
+  pipes are intentionally silent. Use numeric MIDI pitches because DAWs differ
+  in octave naming. The plugin does not transpose ordinary middle-C notes into
+  these toy keys.
 - Try xylophone/trap switches and authored reiteration; ordinary percussion should
   decay. Auxiliary/second-touch divisions retain their original relationships.
 - Save/reopen and duplicate an instance after loading completes. Controls beyond

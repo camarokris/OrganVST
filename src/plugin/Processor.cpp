@@ -71,13 +71,21 @@ void Processor::requestLoad(std::string path) {
 }
 void Processor::worker() {
  try {
-  unsigned handled=0;
+  unsigned handled=0;int loggedInput=-1,loggedRoute=-2;
   const auto data=dataDirectory();
   Diagnostics diagnostics(data/"logs");
   auto* previousLog=wxLog::SetThreadActiveTarget(&diagnostics);
   struct RestoreLog { wxLog* previous; ~RestoreLog(){wxLog::SetThreadActiveTarget(previous);} } restoreLog{previousLog};
   while(!quit_.load()) {
     delete retired_.exchange(nullptr);
+    const int input=lastInput_.load(),route=inputDivision_.load();
+    if(input!=loggedInput) {
+      loggedInput=input;
+      if(input>=0)diagnostics.text("Received MIDI channel="+std::to_string(input/128+1)+" note="+std::to_string(input%128));
+    }
+    if(route!=loggedRoute) {
+      loggedRoute=route;diagnostics.text(route<0?"Input routing: native MIDI channels":"Input routing: all channels to division channel="+std::to_string(route+1));
+    }
     std::string path,exportPath; unsigned serial;
     std::vector<std::pair<std::string,bool>> registration;bool legacy=false;
     { std::lock_guard lock(mutex_); serial=requestSerial_; if(serial!=handled){path=requestedPath_;registration=requestedRegistration_;legacy=legacyRestore_;}exportPath=std::move(diagnosticDestination_);diagnosticDestination_.clear(); }
@@ -107,6 +115,7 @@ void Processor::worker() {
         diagnostics.text("Shared immutable sample payloads in this plugin process: "+std::to_string(memory.bytes)+" bytes, "+std::to_string(memory.blocks)+" blocks; cumulative reuse="+std::to_string(memory.reused));
         { std::lock_guard lock(mutex_);
           if(serial!=requestSerial_ || quit_.load())continue;
+          if(inputDivision_.load()>=0 && std::none_of(surface->controls.begin(),surface->controls.end(),[&](const auto& c){return c.channel==inputDivision_.load();}))inputDivision_.store(-1);
           savedPath_=path;status_=instance->name()+(legacy?" — legacy registration reset; recheck automation":"");
           metadata_=surface->metadata();surface_=surface;
           delete pending_.exchange(instance.release());
@@ -140,6 +149,11 @@ tresult PLUGIN_API Processor::process(ProcessData& data) {
     retired_.store(old);
   }
   if(panic_.exchange(false) && active_)active_->panic();
+  const int route=inputDivision_.load();
+  if(route!=activeInputDivision_) {
+    if(active_)active_->panic();
+    activeInputDivision_=route;
+  }
   if(active_)active_->applyCommands();
   // Merge event and automation offsets without allocating or sorting.
   int cursor=0;
@@ -152,8 +166,11 @@ tresult PLUGIN_API Processor::process(ProcessData& data) {
     Event ev{};
     while(eventIndex<events && data.inputEvents->getEvent(eventIndex,ev)==kResultOk && ev.sampleOffset<=cursor) {
       if(active_) {
-        if(ev.type==Event::kNoteOnEvent)active_->note(ev.noteOn.channel,ev.noteOn.pitch,unsigned(std::clamp(ev.noteOn.velocity,0.f,1.f)*127));
-        if(ev.type==Event::kNoteOffEvent)active_->note(ev.noteOff.channel,ev.noteOff.pitch,0);
+        if(ev.type==Event::kNoteOnEvent && ev.noteOn.channel>=0 && ev.noteOn.channel<16 && ev.noteOn.pitch>=0 && ev.noteOn.pitch<128) {
+          lastInput_.store(ev.noteOn.channel*128+ev.noteOn.pitch);
+          active_->note(route>=0?route:ev.noteOn.channel,ev.noteOn.pitch,unsigned((std::isfinite(ev.noteOn.velocity)?std::clamp(ev.noteOn.velocity,0.f,1.f):0.f)*127));
+        }
+        if(ev.type==Event::kNoteOffEvent && ev.noteOff.channel>=0 && ev.noteOff.channel<16 && ev.noteOff.pitch>=0 && ev.noteOff.pitch<128)active_->note(route>=0?route:ev.noteOff.channel,ev.noteOff.pitch,0);
       }
       ++eventIndex;
     }
@@ -181,6 +198,15 @@ tresult PLUGIN_API Processor::process(ProcessData& data) {
 }
 tresult PLUGIN_API Processor::notify(IMessage* message) {
   if(!message)return kInvalidArgument;
+  if(std::strcmp(message->getMessageID(),"route")==0) {
+    int64 generation=0,channel=-1;
+    auto* attrs=message->getAttributes();
+    if(attrs->getInt("generation",generation)!=kResultOk || attrs->getInt("channel",channel)!=kResultOk || channel < -1 || channel>15)return kInvalidArgument;
+    std::lock_guard lock(mutex_);
+    if(!surface_ || generation!=surface_->generation || !surface_->ready.load())return kResultFalse;
+    if(channel>=0 && std::none_of(surface_->controls.begin(),surface_->controls.end(),[&](const auto& c){return c.channel==channel;}))return kInvalidArgument;
+    inputDivision_.store(int(channel));return kResultOk;
+  }
   if(std::strcmp(message->getMessageID(),"control")==0 || std::strcmp(message->getMessageID(),"audition")==0) {
     int64 generation=0,index=0,value=0;
     auto* attrs=message->getAttributes();
@@ -188,7 +214,7 @@ tresult PLUGIN_API Processor::notify(IMessage* message) {
     std::lock_guard lock(mutex_);
     if(!surface_ || generation!=surface_->generation || !surface_->ready.load())return kResultFalse;
     if(std::strcmp(message->getMessageID(),"audition")==0) {
-      if(index>=0 && index<16)surface_->audition.store(int(index));
+      if(index>=0 && index<16*128)surface_->audition.store(int(index));
     } else if(index>=0 && size_t(index)<surface_->controls.size() && attrs->getInt("value",value)==kResultOk)
       surface_->values[index].requested.store(value?1:0);
     return kResultOk;
@@ -218,6 +244,8 @@ tresult PLUGIN_API Processor::notify(IMessage* message) {
     if(surface_) {
       response->getAttributes()->setInt("generation",surface_->generation);
       response->getAttributes()->setInt("ready",surface_->ready.load()?1:0);
+      response->getAttributes()->setInt("route",inputDivision_.load());
+      response->getAttributes()->setInt("input",lastInput_.load());
       std::vector<unsigned char> states;
       for(unsigned i=0;i<surface_->controls.size();++i)states.push_back(surface_->values[i].actual.load()?1:0);
       response->getAttributes()->setBinary("states",states.data(),uint32(states.size()));
@@ -227,7 +255,7 @@ tresult PLUGIN_API Processor::notify(IMessage* message) {
   return AudioEffect::notify(message);
 }
 tresult PLUGIN_API Processor::getState(IBStream* stream) {
-  ProjectState state;state.gain=gain_.load();
+  ProjectState state;state.gain=gain_.load();state.inputDivision=inputDivision_.load();
   {std::lock_guard lock(mutex_);state.path=savedPath_;
     if(surface_)for(unsigned i=0;i<surface_->controls.size();++i) {
       const int pending=surface_->values[i].requested.load();
@@ -238,7 +266,7 @@ tresult PLUGIN_API Processor::getState(IBStream* stream) {
 }
 tresult PLUGIN_API Processor::setState(IBStream* stream) {
   ProjectState state;if(!readProjectState(stream,state))return kResultFalse;
-  gain_.store(state.gain);
+  gain_.store(state.gain);inputDivision_.store(state.inputDivision);
   if(!state.path.empty()) {
     std::lock_guard lock(mutex_);requestedPath_=std::move(state.path);
     requestedRegistration_=std::move(state.controls);legacyRestore_=state.legacy;

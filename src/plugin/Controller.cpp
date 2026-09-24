@@ -29,6 +29,19 @@ public:
     if(page*20>=result.size())page=0;
     return result;
   }
+  const ControlDescriptor* selected() const {
+    auto divisions=groups();
+    for(const auto& c:controller.catalog)if(group<divisions.size() && c.group==divisions[group])return &c;
+    return nullptr;
+  }
+  void updatePitch() {
+    const auto* c=selected();if(!c || c->channel<0)return;
+    if(pitchGroup!=c->key || pitchGeneration!=controller.generation) {
+      pitchGroup=c->key;pitchGeneration=controller.generation;
+      pitch=c->firstNote<=60 && c->lastNote>=60?60:c->firstNote;
+    }
+    pitch=std::clamp(pitch,c->firstNote,c->lastNote);
+  }
   void draw(VSTGUI::CDrawContext* context) override {
     using namespace VSTGUI;
     auto button=[&](const CRect& r,const std::string& label,bool on=false) {
@@ -37,7 +50,7 @@ public:
     };
     context->setFillColor(CColor(23,27,32));context->drawRect(getViewSize(),kDrawFilled);
     context->setFont(kNormalFontVeryBig);context->setFontColor(CColor(234,220,181));
-    context->drawString("OrganVST 0.2 — Division controls",CRect(24,18,660,58),kLeftText);
+    context->drawString("OrganVST 0.3 — Division controls",CRect(24,18,660,58),kLeftText);
     context->setFont(kNormalFont);context->setFontColor(kWhiteCColor);
     context->drawString(controller.status.c_str(),CRect(24,64,976,96),kLeftText);
     button(CRect(830,18,976,54),"Load organ…");button(CRect(680,18,820,54),"Cancel load");
@@ -53,14 +66,20 @@ public:
       CRect rect(244+(cell%2)*366,156+(cell/2)*42,600+(cell%2)*366,194+(cell/2)*42);
       button(rect,c.kind+": "+c.name,index<controller.actual.size()&&controller.actual[index]);
     }
-    int channel=-1;
-    for(const auto& c:controller.catalog)if(group<divisions.size() && c.group==divisions[group]){channel=c.channel;break;}
-    const auto hint=channel>=0?"MIDI channel "+std::to_string(channel+1)+"  |  Audition plays a short note in this division":"Global controls — select a division to audition";
-    context->drawString(hint.c_str(),CRect(244,580,966,606),kLeftText);
-    context->drawString((std::to_string(indices.size())+" controls in view / "+std::to_string(controller.catalog.size())+" total").c_str(),CRect(244,611,960,637),kLeftText);
+    updatePitch();const auto* selection=selected();
+    const int channel=selection?selection->channel:-1;
+    std::string routeName="MIDI channels";
+    for(const auto& c:controller.catalog)if(c.channel==controller.inputDivision && c.channel>=0){routeName=c.group;break;}
+    const auto hint=channel>=0?"Division: ch "+std::to_string(channel+1)+", MIDI notes "+std::to_string(selection->firstNote)+"–"+std::to_string(selection->lastNote)+" | Input route: "+routeName:"Global controls | Input route: "+routeName;
+    context->drawString(hint.c_str(),CRect(244,580,976,606),kLeftText);
+    button(CRect(244,610,452,640),"Play this division",channel>=0&&controller.inputDivision==channel);
+    button(CRect(462,610,660,640),"Use MIDI channels",controller.inputDivision<0);
+    const auto incoming=controller.lastInput>=0?"Received ch "+std::to_string(controller.lastInput/128+1)+" / note "+std::to_string(controller.lastInput%128):"No MIDI notes received";
+    context->drawString(incoming.c_str(),CRect(674,610,976,640),kLeftText);
     button(CRect(24,646,124,682),"Previous");button(CRect(134,646,234,682),"Next");
     context->drawString(("Page "+std::to_string(page+1)+" / "+std::to_string(std::max(1u,unsigned((indices.size()+19)/20)))).c_str(),CRect(244,646,390,682));
-    button(CRect(410,646,620,682),controller.ready?"Audition selected division":"Waiting for audio host");
+    button(CRect(396,646,572,682),controller.ready?"Audition note "+std::to_string(pitch):"Waiting for host");
+    button(CRect(582,646,626,682),"−");button(CRect(636,646,680,682),"+");
     button(CRect(790,646,976,682),"Export diagnostics");setDirty(false);
   }
   VSTGUI::CMouseEventResult onMouseDown(VSTGUI::CPoint& p,const VSTGUI::CButtonState&) override {
@@ -82,9 +101,15 @@ public:
       if(CRect(126,580,226,610).pointInside(p) && (groupPage+1)*11<divisions.size()){++groupPage;group=groupPage*11;page=0;}
       if(CRect(24,646,124,682).pointInside(p) && page)--page;
       if(CRect(134,646,234,682).pointInside(p) && (page+1)*20<indices.size())++page;
-      if(CRect(410,646,620,682).pointInside(p)) {
-        for(const auto& c:controller.catalog)if(group<divisions.size() && c.group==divisions[group]){if(c.channel>=0)controller.audition(c.channel);break;}
+      updatePitch();
+      const auto* selection=selected();
+      if(selection && selection->channel>=0) {
+        if(CRect(244,610,452,640).pointInside(p))controller.route(selection->channel);
+        if(CRect(582,646,626,682).pointInside(p) && pitch>selection->firstNote)--pitch;
+        if(CRect(636,646,680,682).pointInside(p) && pitch<selection->lastNote)++pitch;
+        if(CRect(396,646,572,682).pointInside(p))controller.audition(selection->channel,pitch);
       }
+      if(CRect(462,610,660,640).pointInside(p))controller.route(-1);
       for(unsigned cell=0;cell<20 && page*20+cell<indices.size();++cell) {
         CRect r(244+(cell%2)*366,156+(cell/2)*42,600+(cell%2)*366,194+(cell/2)*42);
         if(r.pointInside(p)){unsigned i=indices[page*20+cell];controller.control(i,!(i<controller.actual.size()&&controller.actual[i]));break;}
@@ -93,7 +118,8 @@ public:
     invalid();return kMouseDownEventHandledButDontNeedMovedOrUpEvents;
   }
 private:
-  Controller& controller;unsigned group=0,groupPage=0,kind=0,page=0;
+  Controller& controller;unsigned group=0,groupPage=0,kind=0,page=0,pitch=60,pitchGeneration=0;
+  std::string pitchGroup;
   const std::array<std::string,5> kinds{"All","Stop","Coupler","Switch","Tremulant"};
 };
 class Editor final : public VSTGUIEditor {
@@ -144,10 +170,15 @@ void Controller::control(unsigned index,bool value) {
     auto id=stopBase+index;beginEdit(id);setParamNormalized(id,value?1:0);performEdit(id,value?1:0);endEdit(id);
   }
 }
-void Controller::audition(int channel) {
+void Controller::audition(int channel,int pitch) {
   if(!ready)return;
   auto m=owned(allocateMessage());if(!m)return;m->setMessageID("audition");
-  m->getAttributes()->setInt("generation",generation);m->getAttributes()->setInt("index",channel);sendMessage(m);
+  m->getAttributes()->setInt("generation",generation);m->getAttributes()->setInt("index",channel*128+pitch);sendMessage(m);
+}
+void Controller::route(int channel) {
+  if(!ready)return;
+  auto m=owned(allocateMessage());if(!m)return;m->setMessageID("route");
+  m->getAttributes()->setInt("generation",generation);m->getAttributes()->setInt("channel",channel);sendMessage(m);
 }
 tresult PLUGIN_API Controller::notify(IMessage* m) {
   if(m && std::strcmp(m->getMessageID(),"status")==0) {
@@ -159,9 +190,9 @@ tresult PLUGIN_API Controller::notify(IMessage* m) {
         metadata=std::move(incoming);catalog.clear();
         std::istringstream lines(metadata);std::string line;
         while(std::getline(lines,line)) {
-          std::istringstream fields(line);ControlDescriptor c;std::string channel;
-          if(std::getline(fields,c.key,'\t')&&std::getline(fields,c.group,'\t')&&std::getline(fields,c.kind,'\t')&&std::getline(fields,channel,'\t')&&std::getline(fields,c.name)) {
-            try{c.channel=std::stoi(channel);}catch(...){c.channel=-1;}
+          std::istringstream fields(line);ControlDescriptor c;std::string channel,first,last;
+          if(std::getline(fields,c.key,'\t')&&std::getline(fields,c.group,'\t')&&std::getline(fields,c.kind,'\t')&&std::getline(fields,channel,'\t')&&std::getline(fields,first,'\t')&&std::getline(fields,last,'\t')&&std::getline(fields,c.name)) {
+            try{c.channel=std::stoi(channel);c.firstNote=std::stoul(first);c.lastNote=std::stoul(last);}catch(...){c.channel=-1;}
             catalog.push_back(std::move(c));
           }
         }
@@ -169,6 +200,8 @@ tresult PLUGIN_API Controller::notify(IMessage* m) {
     }
     int64 number=0;
     if(m->getAttributes()->getInt("generation",number)==kResultOk)generation=unsigned(number);
+    if(m->getAttributes()->getInt("route",number)==kResultOk)inputDivision=int(number);
+    if(m->getAttributes()->getInt("input",number)==kResultOk)lastInput=int(number);
     ready=m->getAttributes()->getInt("ready",number)==kResultOk&&number!=0;
     if(m->getAttributes()->getBinary("states",bytes,size)==kResultOk && size==catalog.size()) {
       actual.clear();auto* values=static_cast<const unsigned char*>(bytes);

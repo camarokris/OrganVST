@@ -203,3 +203,30 @@ Local post-fix CTest: 6/6 passed in 2.39 seconds; validator: 47/47. The installe
 Mac bundle and dist/local-0.2.0 copy match and pass ad-hoc code-sign verification.
 Colleague FL Studio 0.2 testing remains pending. These checks do not complete the
 remaining full-release gates in PLAN.md.
+
+## Version 0.3 silent-divisions follow-up
+
+The colleague reports good organization and no crashes in Barton but silent Pedal,
+Great, Solo, second-touch, Toe Pistons and Console Toys. Incoming channel/pitch and
+Audition usage were not supplied, so the exact FL Studio cause is not established.
+
+Implemented explicit all-input-to-one-division routing with native-channel fallback,
+V3 saved routing (V2 registrations retained), note-range/last-input display, and
+selectable audition pitch. Short keyboards start on their first key rather than
+clamping middle C to an unmapped upper key. Diagnostic input/route observations
+are logged by the worker, never from the audio thread; they are periodic snapshots,
+not a complete event trace. The private checklist is ignored by Git.
+
+On the same Apple M5 Pro development Mac: `cmake --build build -j 6` completed,
+Steinberg validator passed 47/47, and `ctest --test-dir build --output-on-failure`
+passed 6/6 in 2.44 seconds. The actual VST3 test covers native versus explicit
+channel-1 routing, stale/invalid commands, route-change note release, short-key
+pitch 36 audition, editorless route recall and reading V2 registrations.
+
+`build/catalog_probe sample-packs/Barton3-7.Beta3.14/Barton3-7.organ
+build/barton-test-data audition` passed all ten divisions at 48 kHz using 127-frame
+blocks. Representative summed energies: Pedal 0.425144, Accomp 0.290959,
+Great/Solo/Great 2T 1.6959 each, Pedal 2T 1.61881, Accomp 2T 2.81752,
+Acc Traps 1.9906, Toe Pistons 54.6234, Console Toys 4.03928. Each produced finite
+nonzero audio, followed by an ended tail. These are numerical sample-engine tests,
+not listening, exhaustive rank testing, FL Studio or standalone-parity acceptance.
