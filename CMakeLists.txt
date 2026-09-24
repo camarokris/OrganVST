@@ -126,3 +126,11 @@ target_compile_definitions(instance_probe PRIVATE GO_RESOURCE_DIR="${GO_SOURCE}"
 add_test(NAME independent_instances COMMAND ${Python3_EXECUTABLE}
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/instances_test.py $<TARGET_FILE:instance_probe>
   ${CMAKE_CURRENT_BINARY_DIR}/instance-fixtures)
+
+if(MINGW)
+  enable_language(RC)
+  # Native test executables also load wxWidgets and need Common Controls v6.
+  foreach(probe organ_probe asset_probe instance_probe)
+    target_sources(${probe} PRIVATE src/platform/WindowsTestHost.rc)
+  endforeach()
+endif()

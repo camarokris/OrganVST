@@ -78,8 +78,10 @@ recall, offline-load readiness, aux routing, user MIDI/automation mappings,
 full tabs/console/crescendo, multi-definition ZIP selection/collection/relinking, diagnostic
 manifest coverage and export tests, and portable distribution assembly.
 
-No native Windows build or validation has run. No colleague FL Studio test has
-run. macOS 13 compatibility and self-contained dynamic-library packaging have not
+Native Windows CI has compiled the engine and plugin; initial SDK validation
+failed while loading wxWidgets without Common Controls v6. The loader now supplies
+a manifest activation context; a successful validation/package run is still
+required. No colleague FL Studio test has run. macOS 13 compatibility and self-contained dynamic-library packaging have not
 been verified. Development build outputs are not distribution artifacts.
 
 ## ZIP implementation follow-up
@@ -91,3 +93,15 @@ system dependency not yet pinned/bundled for distribution. The current CMake cac
 sets CMAKE_PREFIX_PATH=/opt/homebrew/opt/libarchive; README documents the portable
 Homebrew prefix command. ZIP loading has not yet been exercised through REAPER's
 picker or with the full Barton ZIP.
+
+## GitHub publication and Windows CI
+
+Public repository: https://github.com/camarokris/OrganVST. CI uses Windows Server
+2022 x64, MSYS2 UCRT64 and GCC 16.2.0 in the initial runs. Tracked pinned SDK
+patches and MinGW UI adapters resolve compilation differences. Runtime dependency
+staging and a C host-facing loader isolate the engine's library search directory.
+
+Local follow-up: `actionlint .github/workflows/windows.yml` passed;
+`ctest --test-dir build --output-on-failure` passed 3/3 (2.12 seconds). These are
+Mac checks, not Windows host results. Public tracked files exclude sample packs,
+downloaded dependencies, binaries, logs and local DAW projects.

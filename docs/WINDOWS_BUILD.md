@@ -13,7 +13,10 @@ using LoadLibraryEx with the bundle's DLL directory in the search path, rather t
 modifying the DAW's global PATH or DLL directory. Loading happens when the host
 initializes the module, never from DllMain or the audio callback. The engine DLL
 contains the actual processor/controller, GrandOrgue engine and VSTGUI editor.
-Both binaries and their runtime libraries must stay together in the bundle.
+The loader activates its own Common Controls v6 manifest during engine loading;
+wxWidgets needs that assembly even when a host does not opt into it. The context
+is deactivated afterward. Both binaries and their runtime libraries must stay
+together in the bundle.
 
 Dependency staging recursively inspects PE imports and copies MSYS2 runtime DLLs;
 Windows system DLLs are not redistributed. Validation tools get their own runtime
