@@ -5,6 +5,7 @@
 #include "vstgui/lib/cvstguitimer.h"
 #include <sstream>
 #include <cstring>
+#include <algorithm>
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -13,66 +14,87 @@ namespace {
 class View final : public VSTGUI::CView {
 public:
   View(Controller& c):CView(VSTGUI::CRect(0,0,1000,700)),controller(c){}
+  std::vector<std::string> groups() const {
+    std::vector<std::string> result;
+    for(const auto& c:controller.catalog)if(std::find(result.begin(),result.end(),c.group)==result.end())result.push_back(c.group);
+    return result;
+  }
+  std::vector<unsigned> visible() {
+    auto all=groups();if(group>=all.size())group=0;
+    std::vector<unsigned> result;
+    for(unsigned i=0;i<controller.catalog.size();++i) {
+      const auto& c=controller.catalog[i];
+      if(!all.empty() && c.group==all[group] && (kind==0 || c.kind==kinds[kind]))result.push_back(i);
+    }
+    if(page*20>=result.size())page=0;
+    return result;
+  }
   void draw(VSTGUI::CDrawContext* context) override {
     using namespace VSTGUI;
+    auto button=[&](const CRect& r,const std::string& label,bool on=false) {
+      context->setFillColor(on?CColor(140,110,54):CColor(42,48,55));context->drawRect(r,kDrawFilled);
+      context->setFontColor(kWhiteCColor);context->drawString(label.c_str(),r);
+    };
     context->setFillColor(CColor(23,27,32));context->drawRect(getViewSize(),kDrawFilled);
     context->setFont(kNormalFontVeryBig);context->setFontColor(CColor(234,220,181));
-    context->drawString("OrganVST",CRect(24,18,850,60),kLeftText);
+    context->drawString("OrganVST 0.2 — Division controls",CRect(24,18,660,58),kLeftText);
     context->setFont(kNormalFont);context->setFontColor(kWhiteCColor);
-    context->drawString(controller.status.c_str(),CRect(24,62,970,90),kLeftText);
-    context->setFillColor(CColor(64,78,87));context->drawRect(CRect(830,18,976,54),kDrawFilled);
-    context->drawString("Load organ…",CRect(830,18,976,54));
-    context->drawString("Cancel load",CRect(680,18,820,54));
-    context->drawString("Stops & Couplers",CRect(24,104,650,132),kLeftText);
-    std::istringstream stream(controller.metadata);std::string name;unsigned index=0;
-    while(std::getline(stream,name)) {
-      if(index>=page*36 && index<(page+1)*36 && index<128) {
-        unsigned cell=index-page*36,col=cell%3,row=cell/3;
-        CRect rect(24+col*320,146+row*40,332+col*320,180+row*40);
-        context->setFillColor(controller.getParamNormalized(stopBase+index)>=.5?CColor(140,110,54):CColor(42,48,55));
-        context->drawRect(rect,kDrawFilled);context->drawString(name.c_str(),rect);
-      }
-      ++index;
+    context->drawString(controller.status.c_str(),CRect(24,64,976,96),kLeftText);
+    button(CRect(830,18,976,54),"Load organ…");button(CRect(680,18,820,54),"Cancel load");
+    for(unsigned i=0;i<5;++i)button(CRect(244+i*146,108,382+i*146,142),kinds[i],kind==i);
+    auto indices=visible();auto divisions=groups();
+    // Division selector also pages, so unusual packs do not lose auxiliary manuals.
+    if(group<groupPage*11 || group>=(groupPage+1)*11)groupPage=group/11;
+    for(unsigned i=groupPage*11;i<divisions.size() && i<(groupPage+1)*11;++i)
+      button(CRect(24,156+(i%11)*38,226,190+(i%11)*38),divisions[i],group==i);
+    if(divisions.size()>11){button(CRect(24,580,120,610),"Divisions <");button(CRect(126,580,226,610),"Divisions >");}
+    for(unsigned cell=0;cell<20 && page*20+cell<indices.size();++cell) {
+      unsigned index=indices[page*20+cell];const auto& c=controller.catalog[index];
+      CRect rect(244+(cell%2)*366,156+(cell/2)*42,600+(cell%2)*366,194+(cell/2)*42);
+      button(rect,c.kind+": "+c.name,index<controller.actual.size()&&controller.actual[index]);
     }
-    context->drawString("Previous",CRect(24,642,140,680));
-    context->drawString("Next",CRect(156,642,272,680));
-    context->drawString("Export diagnostics",CRect(790,642,980,680));
-    setDirty(false);
+    int channel=-1;
+    for(const auto& c:controller.catalog)if(group<divisions.size() && c.group==divisions[group]){channel=c.channel;break;}
+    const auto hint=channel>=0?"MIDI channel "+std::to_string(channel+1)+"  |  Audition plays a short note in this division":"Global controls — select a division to audition";
+    context->drawString(hint.c_str(),CRect(244,580,966,606),kLeftText);
+    context->drawString((std::to_string(indices.size())+" controls in view / "+std::to_string(controller.catalog.size())+" total").c_str(),CRect(244,611,960,637),kLeftText);
+    button(CRect(24,646,124,682),"Previous");button(CRect(134,646,234,682),"Next");
+    context->drawString(("Page "+std::to_string(page+1)+" / "+std::to_string(std::max(1u,unsigned((indices.size()+19)/20)))).c_str(),CRect(244,646,390,682));
+    button(CRect(410,646,620,682),controller.ready?"Audition selected division":"Waiting for audio host");
+    button(CRect(790,646,976,682),"Export diagnostics");setDirty(false);
   }
   VSTGUI::CMouseEventResult onMouseDown(VSTGUI::CPoint& p,const VSTGUI::CButtonState&) override {
     using namespace VSTGUI;
-    if(CRect(680,18,820,54).pointInside(p)) {
-      controller.cancelLoad();
-    } else if(CRect(830,18,976,54).pointInside(p)) {
-      auto selector=VSTGUI::owned(CNewFileSelector::create(getFrame()));
-      selector->setTitle("Load an organ definition");
-      selector->addFileExtension(CFileExtension("Organ definition","organ"));
-      selector->addFileExtension(CFileExtension("Organ definition","odf"));
-      selector->addFileExtension(CFileExtension("Organ ZIP pack","zip"));
-      auto* target=&controller;target->addRef();
-      selector->run([target](CNewFileSelector* selected) {
-        if(selected->getNumSelectedFiles())target->load(selected->getSelectedFile(0));
-        target->release();
-      });
-    } else if(p.y>=642 && p.x>=790) {
-      auto selector=VSTGUI::owned(CNewFileSelector::create(getFrame(),CNewFileSelector::kSelectSaveFile));
-      selector->setTitle("Export diagnostics");selector->setDefaultSaveName("OrganVST-diagnostics.zip");
-      auto* target=&controller;target->addRef();
-      selector->run([target](CNewFileSelector* selected){if(selected->getNumSelectedFiles())target->exportDiagnostics(selected->getSelectedFile(0));target->release();});
-    } else if(p.y>=642) {
-      if(p.x<140 && page) --page;
-      else if(p.x>=156 && p.x<272 && page<3)++page;
-    } else if(p.x>=24 && p.x<984 && p.y>=146 && p.y<626) {
-      unsigned col=unsigned(p.x-24)/320,row=unsigned(p.y-146)/40,index=page*36+row*3+col;
-      if(index<128) {
-        auto id=stopBase+index;auto value=controller.getParamNormalized(id)>=.5?0.0:1.0;
-        controller.beginEdit(id);controller.setParamNormalized(id,value);controller.performEdit(id,value);controller.endEdit(id);
+    if(CRect(680,18,820,54).pointInside(p))controller.cancelLoad();
+    else if(CRect(830,18,976,54).pointInside(p)) {
+      auto selector=VSTGUI::owned(CNewFileSelector::create(getFrame()));selector->setTitle("Load an organ definition");
+      selector->addFileExtension(CFileExtension("Organ definition","organ"));selector->addFileExtension(CFileExtension("Organ definition","odf"));selector->addFileExtension(CFileExtension("Organ ZIP pack","zip"));
+      auto* target=&controller;target->addRef();selector->run([target](CNewFileSelector* selected){if(selected->getNumSelectedFiles())target->load(selected->getSelectedFile(0));target->release();});
+    } else if(CRect(790,646,976,682).pointInside(p)) {
+      auto selector=VSTGUI::owned(CNewFileSelector::create(getFrame(),CNewFileSelector::kSelectSaveFile));selector->setTitle("Export diagnostics");selector->setDefaultSaveName("OrganVST-diagnostics.zip");
+      auto* target=&controller;target->addRef();selector->run([target](CNewFileSelector* selected){if(selected->getNumSelectedFiles())target->exportDiagnostics(selected->getSelectedFile(0));target->release();});
+    } else {
+      auto indices=visible();auto divisions=groups();
+      for(unsigned i=0;i<5;++i)if(CRect(244+i*146,108,382+i*146,142).pointInside(p)){kind=i;page=0;}
+      for(unsigned i=groupPage*11;i<divisions.size() && i<(groupPage+1)*11;++i)
+        if(CRect(24,156+(i%11)*38,226,190+(i%11)*38).pointInside(p)){group=i;page=0;}
+      if(CRect(24,580,120,610).pointInside(p) && groupPage){--groupPage;group=groupPage*11;page=0;}
+      if(CRect(126,580,226,610).pointInside(p) && (groupPage+1)*11<divisions.size()){++groupPage;group=groupPage*11;page=0;}
+      if(CRect(24,646,124,682).pointInside(p) && page)--page;
+      if(CRect(134,646,234,682).pointInside(p) && (page+1)*20<indices.size())++page;
+      if(CRect(410,646,620,682).pointInside(p)) {
+        for(const auto& c:controller.catalog)if(group<divisions.size() && c.group==divisions[group]){if(c.channel>=0)controller.audition(c.channel);break;}
+      }
+      for(unsigned cell=0;cell<20 && page*20+cell<indices.size();++cell) {
+        CRect r(244+(cell%2)*366,156+(cell/2)*42,600+(cell%2)*366,194+(cell/2)*42);
+        if(r.pointInside(p)){unsigned i=indices[page*20+cell];controller.control(i,!(i<controller.actual.size()&&controller.actual[i]));break;}
       }
     }
     invalid();return kMouseDownEventHandledButDontNeedMovedOrUpEvents;
   }
 private:
-  Controller& controller;unsigned page=0;
+  Controller& controller;unsigned group=0,groupPage=0,kind=0,page=0;
+  const std::array<std::string,5> kinds{"All","Stop","Coupler","Switch","Tremulant"};
 };
 class Editor final : public VSTGUIEditor {
 public:
@@ -112,11 +134,46 @@ void Controller::exportDiagnostics(const std::string& path) {
   auto m=owned(allocateMessage());if(!m)return;m->setMessageID("diagnostics");
   m->getAttributes()->setBinary("path",path.data(),uint32(path.size()));sendMessage(m);
 }
+void Controller::control(unsigned index,bool value) {
+  if(!ready||index>=catalog.size())return;
+  auto m=owned(allocateMessage());if(!m)return;m->setMessageID("control");
+  m->getAttributes()->setInt("generation",generation);m->getAttributes()->setInt("index",index);m->getAttributes()->setInt("value",value?1:0);
+  sendMessage(m);
+  if(index<actual.size())actual[index]=value;
+  if(index<128) {
+    auto id=stopBase+index;beginEdit(id);setParamNormalized(id,value?1:0);performEdit(id,value?1:0);endEdit(id);
+  }
+}
+void Controller::audition(int channel) {
+  if(!ready)return;
+  auto m=owned(allocateMessage());if(!m)return;m->setMessageID("audition");
+  m->getAttributes()->setInt("generation",generation);m->getAttributes()->setInt("index",channel);sendMessage(m);
+}
 tresult PLUGIN_API Controller::notify(IMessage* m) {
   if(m && std::strcmp(m->getMessageID(),"status")==0) {
     const void* bytes=nullptr;uint32 size=0;
     if(m->getAttributes()->getBinary("status",bytes,size)==kResultOk)status.assign(static_cast<const char*>(bytes),size);
-    if(m->getAttributes()->getBinary("controls",bytes,size)==kResultOk)metadata.assign(static_cast<const char*>(bytes),size);
+    if(m->getAttributes()->getBinary("controls",bytes,size)==kResultOk) {
+      std::string incoming(static_cast<const char*>(bytes),size);
+      if(incoming!=metadata) {
+        metadata=std::move(incoming);catalog.clear();
+        std::istringstream lines(metadata);std::string line;
+        while(std::getline(lines,line)) {
+          std::istringstream fields(line);ControlDescriptor c;std::string channel;
+          if(std::getline(fields,c.key,'\t')&&std::getline(fields,c.group,'\t')&&std::getline(fields,c.kind,'\t')&&std::getline(fields,channel,'\t')&&std::getline(fields,c.name)) {
+            try{c.channel=std::stoi(channel);}catch(...){c.channel=-1;}
+            catalog.push_back(std::move(c));
+          }
+        }
+      }
+    }
+    int64 number=0;
+    if(m->getAttributes()->getInt("generation",number)==kResultOk)generation=unsigned(number);
+    ready=m->getAttributes()->getInt("ready",number)==kResultOk&&number!=0;
+    if(m->getAttributes()->getBinary("states",bytes,size)==kResultOk && size==catalog.size()) {
+      actual.clear();auto* values=static_cast<const unsigned char*>(bytes);
+      for(unsigned i=0;i<size;++i){actual.push_back(values[i]!=0);if(i<128)setParamNormalized(stopBase+i,values[i]?1:0);}
+    }
     return kResultOk;
   }
   return EditController::notify(m);

@@ -193,6 +193,95 @@ index 1ee6d8c..3eb597c 100644
    GOSoundOrganEngine(GOOrganModel &organModel, GOMemoryPool &memoryPool);
    // Defined in the .cpp file because the destructor of std::unique_ptr requires
    // the complete type of the managed object, which is only forward-declared
+diff --git a/src/grandorgue/sound/playing/GOSoundAudioSection.cpp b/src/grandorgue/sound/playing/GOSoundAudioSection.cpp
+index 043d65d..254d400 100644
+--- a/src/grandorgue/sound/playing/GOSoundAudioSection.cpp
++++ b/src/grandorgue/sound/playing/GOSoundAudioSection.cpp
+@@ -53,7 +53,12 @@ void GOSoundAudioSection::ClearData() {
+   m_IsCompressed = false;
+   m_channels = 0;
+   if (m_data) {
++#ifdef ORGANVST_HOST
++    if (!m_HostSharedData) m_Pool.Free(m_data);
++    m_HostSharedData.reset();
++#else
+     m_Pool.Free(m_data);
++#endif
+     m_data = NULL;
+   }
+   if (m_ReleaseAligner) {
+@@ -486,7 +491,13 @@ void GOSoundAudioSection::Setup(
+   }
+ 
+   m_AllocSize = total_alloc_samples * m_BytesPerSample;
+-  m_data = (unsigned char *)m_Pool.Alloc(m_AllocSize, !compress);
++  m_data = (unsigned char *)m_Pool.Alloc(m_AllocSize,
++#ifdef ORGANVST_HOST
++    false // Final immutable payload goes into the process-local shared cache.
++#else
++    !compress
++#endif
++  );
+   if (m_data == NULL)
+     throw GOOutOfMemory();
+   m_SampleRate = pcm_data_sample_rate;
+@@ -502,6 +513,12 @@ void GOSoundAudioSection::Setup(
+ 
+   if (compress)
+     Compress(m_BitsPerSample > 16);
++#ifdef ORGANVST_HOST
++  auto shared = organvst::shareSampleBytes(m_data, m_AllocSize);
++  m_Pool.Free(m_data);
++  m_HostSharedData = std::move(shared);
++  m_data = const_cast<unsigned char *>(m_HostSharedData->data());
++#endif
+ }
+ 
+ void GOSoundAudioSection::Compress(bool format16) {
+@@ -545,7 +562,9 @@ void GOSoundAudioSection::Compress(bool format16) {
+        * uncompressed data. */
+       if (output_len + 10 >= m_AllocSize) {
+         m_Pool.Free(data);
++#ifndef ORGANVST_HOST
+         m_data = (unsigned char *)m_Pool.MoveToPool(m_data, m_AllocSize);
++#endif
+         if (m_data == NULL)
+           throw GOOutOfMemory();
+         return;
+@@ -558,7 +577,9 @@ void GOSoundAudioSection::Compress(bool format16) {
+   m_AllocSize = output_len;
+   m_IsCompressed = true;
+ 
++#ifndef ORGANVST_HOST
+   m_data = (unsigned char *)m_Pool.MoveToPool(m_data, m_AllocSize);
++#endif
+   if (m_data == NULL)
+     throw GOOutOfMemory();
+ }
+diff --git a/src/grandorgue/sound/playing/GOSoundAudioSection.h b/src/grandorgue/sound/playing/GOSoundAudioSection.h
+index 4a276dd..e2ab65a 100644
+--- a/src/grandorgue/sound/playing/GOSoundAudioSection.h
++++ b/src/grandorgue/sound/playing/GOSoundAudioSection.h
+@@ -12,6 +12,9 @@
+ #include <math.h>
+ 
+ #include "GOBool3.h"
++#ifdef ORGANVST_HOST
++#include "OrganVSTSampleCache.h"
++#endif
+ #include "GOInt.h"
+ #include "GOSoundCompressionCache.h"
+ #include "GOSoundResample.h"
+@@ -95,6 +98,9 @@ private:
+ 
+   /* Pointer to (size) bytes of data encoded in the format (type) */
+   unsigned char *m_data;
++#ifdef ORGANVST_HOST
++  std::shared_ptr<const organvst::SampleBytes> m_HostSharedData;
++#endif
+ 
+   /* If this is a release section, it may contain an alignment table */
+   GOSoundReleaseAlignTable *m_ReleaseAligner;
 diff --git a/src/grandorgue/sound/tasks/GOSoundBufferTaskBase.h b/src/grandorgue/sound/tasks/GOSoundBufferTaskBase.h
 index 3f8bf5e..7724166 100644
 --- a/src/grandorgue/sound/tasks/GOSoundBufferTaskBase.h

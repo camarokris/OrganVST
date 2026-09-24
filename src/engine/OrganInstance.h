@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 #include "GOOrganController.h"
+#include "ControlSurface.h"
 #include "../assets/OrganAssets.h"
 #include <array>
 #include <atomic>
@@ -19,6 +20,8 @@ public:
 };
 
 struct ControlInfo {
+  std::string key;
+  int channel=-1;
   std::string name;
   std::string group;
   std::string kind;
@@ -38,6 +41,10 @@ public:
   void note(unsigned channel,unsigned pitch,unsigned velocity);
   void stop(unsigned index,bool value);
   void panic();
+  void applyCommands();
+  void publishControls();
+  void markReady() { surface_->ready.store(true); }
+  std::shared_ptr<ControlSurface> surface() const { return surface_; }
   void render(float* left,float* right,unsigned frames);
   const std::vector<ControlInfo>& controls() const { return controls_; }
   const std::string& name() const { return name_; }
@@ -53,5 +60,9 @@ private:
   std::string name_,path_;
   unsigned rate_;
   bool prepared_=false;
+  std::shared_ptr<ControlSurface> surface_;
+  int auditionChannel_=-1;
+  unsigned auditionPitch_=60;
+  unsigned auditionFrames_=0;
 };
 }

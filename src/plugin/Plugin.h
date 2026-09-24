@@ -3,6 +3,7 @@
 #include "public.sdk/source/vst/vstaudioeffect.h"
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "engine/OrganInstance.h"
+#include "State.h"
 #include <atomic>
 #include <array>
 #include <mutex>
@@ -38,6 +39,9 @@ private:
   std::string requestedPath_,savedPath_,status_="No organ loaded";
   std::string metadata_;
   std::string diagnosticDestination_;
+  std::shared_ptr<ControlSurface> surface_;
+  std::vector<std::pair<std::string,bool>> requestedRegistration_;
+  bool legacyRestore_=false;
   unsigned requestSerial_=0;
   std::atomic<unsigned> rate_{48000};
   std::atomic<bool> quit_{false},panic_{false};
@@ -59,6 +63,12 @@ public:
   void poll();
   void cancelLoad();
   void exportDiagnostics(const std::string&);
+  void control(unsigned,bool);
+  void audition(int);
   std::string status="No organ loaded",metadata;
+  unsigned generation=0;
+  bool ready=false;
+  std::vector<bool> actual;
+  std::vector<ControlDescriptor> catalog;
 };
 }

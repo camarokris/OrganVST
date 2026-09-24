@@ -1,6 +1,7 @@
 # FL Studio colleague testing checklist
 
-Status: colleague testing pending. Use the alpha artifact from a successful
+Status: the first colleague report found catalog duplication/truncation and silent
+controls in 0.1. Version 0.2 colleague retesting is pending. Use the alpha artifact from a successful
 Windows VST3 alpha workflow run. That run must pass Steinberg validation and
 include dependencies, symbols, and licenses. Failed runs provide build evidence
 only; they do not provide an approved test package.

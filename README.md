@@ -45,13 +45,16 @@ are extracted to a private managed folder and removed when the engine is destroy
 Multi-definition ZIPs currently require manual extraction and definition selection.
 Extraction rejects traversal, links, ambiguous names, damaged data, and packs above
 64 GiB or 200,000 entries. Use **Cancel load** to cancel an in-flight load. WAV and WavPack samples are loaded
-by GrandOrgue. Loading happens in the background. The first 128 stops/couplers/
-tremulants are currently connected directly to the 128 Boolean DAW parameters.
-Use Previous/Next for control pages. MIDI channels 1–15 address successive manuals;
+by GrandOrgue. Loading happens in the background. All authored writable controls are available by division, with filters for stops,
+couplers, switches and tremulants. Generated internal couplers are excluded.
+The first 128 catalog entries are connected to the 128 Boolean DAW parameters;
+controls beyond those slots remain fully usable and saved through the editor.
+Use Previous/Next within a division; the division list has its own paging.
+The editor shows each division’s MIDI channel and provides a short audition note. MIDI channels 1–15 address successive manuals;
 channel 16 addresses the pedalboard when present. Output is stereo only so far.
 
 The plugin has separate processor/controller components, sample-offset event
-processing, basic path/gain/control project state, and rotating background logs.
+processing, versioned path/gain/keyed-control project state, and rotating background logs.
 **Export diagnostics** writes a ZIP with the session logs, control list, and a
 reproduction template. Home-directory prefixes are redacted; samples are excluded.
 Inspect the archive before sharing it. Normal logs retain full source paths.
@@ -59,7 +62,17 @@ Inspect the archive before sharing it. Normal logs retain full source paths.
 On macOS logs are in `~/Library/Application Support/OrganVST/logs`.
 On Windows the intended location is `%LOCALAPPDATA%/OrganVST/logs`.
 
-Current limitations include incomplete state restoration, no readiness safeguard
+Samples load into memory. Immutable main sample payloads are shared within the
+same plugin process; voices, registration, loop/release metadata and auxiliary
+buffers remain per instance. Separate sandbox processes cannot share this cache.
+The cache compares content, so changed sample data cannot reuse stale bytes.
+
+Version 0.2 restores all exposed controls by stable definition keys. Old 0.1
+projects restore their pack and gain with authored registration defaults because
+the old control indices included internal couplers. Recheck old automation lanes
+and registrations; use a new test project for this alpha.
+
+Current limitations include incomplete combinations/crescendo state restoration, no readiness safeguard
 for offline export during asynchronous loading, no assignable mappings or MIDI
 learn, no auxiliary routing, no full tabbed interface/console,
 no asset collection/relink UI, and an unfinished real-time safety audit. Do not use

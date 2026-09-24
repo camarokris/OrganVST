@@ -119,3 +119,9 @@ removed from PATH. The alpha and corresponding project source ZIPs are uploaded.
 Initial runtime loading failures were fixed with bundled DLLs and an explicit
 Common Controls v6 activation context. FL Studio remains pending; this alpha is
 ready for exploratory colleague testing, not the completed release.
+
+## Colleague feedback repair
+
+See docs/COLLEAGUE_FIX_PLAN.md for the September 24 report findings, repair sequence,
+and verification. This follow-up targets catalog completeness, control behavior,
+MIDI clarity and instance sample memory; full release acceptance remains separate.

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "Plugin.h"
 #include "Services.h"
+#include "engine/OrganVSTSampleCache.h"
 #include "pluginterfaces/vst/ivstevents.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
 #include "pluginterfaces/base/ibstream.h"
@@ -20,16 +21,7 @@ namespace organvst {
 namespace {
 // Module-local wx runtime. The SDK build hides non-exported symbols.
 wxInitializer& wxRuntime() { static wxInitializer runtime; return runtime; }
-bool readState(IBStream* state,std::string& path,double& gain,std::array<double,128>& stops) {
-  IBStreamer s(state,kLittleEndian);
-  uint32 magic=0,version=0,size=0;
-  if(!s.readInt32u(magic)||magic!=0x4F565354||!s.readInt32u(version)||version!=1||!s.readInt32u(size)||size>1048576) return false;
-  path.resize(size);
-  if(size && s.readRaw(path.data(),size)!=size) return false;
-  if(!s.readDouble(gain)||!std::isfinite(gain)||gain<0||gain>1) return false;
-  for(auto& v:stops) if(!s.readDouble(v)||!std::isfinite(v)||v<0||v>1) return false;
-  return true;
-}
+
 }
 Processor::Processor() { setControllerClass(controllerId); for(auto& s:stops_) s.store(0); }
 Processor::~Processor() { shutdown(); }
@@ -59,13 +51,23 @@ tresult PLUGIN_API Processor::setupProcessing(ProcessSetup& setup) {
   auto result=AudioEffect::setupProcessing(setup);
   if(result==kResultOk && rate_.exchange(unsigned(setup.sampleRate))!=unsigned(setup.sampleRate)) {
     std::lock_guard lock(mutex_);
-    if(!savedPath_.empty()) { requestedPath_=savedPath_; ++requestSerial_; }
+    if(!requestedPath_.empty() || !savedPath_.empty()) {
+      if(requestedPath_.empty())requestedPath_=savedPath_;
+      if(requestedPath_==savedPath_ && surface_) {
+        requestedRegistration_.clear();legacyRestore_=false;
+        for(unsigned i=0;i<surface_->controls.size();++i) {
+        const int pending=surface_->values[i].requested.load();
+        requestedRegistration_.emplace_back(surface_->controls[i].key,pending>=0?pending!=0:surface_->values[i].actual.load());
+        }
+      }
+      ++requestSerial_;
+    }
   }
   return result;
 }
 tresult PLUGIN_API Processor::setProcessing(TBool state) { panic_.store(true); return AudioEffect::setProcessing(state); }
 void Processor::requestLoad(std::string path) {
-  std::lock_guard lock(mutex_); requestedPath_=std::move(path); ++requestSerial_; status_="Loading organ…";
+  std::lock_guard lock(mutex_); requestedPath_=std::move(path); requestedRegistration_.clear();legacyRestore_=false; ++requestSerial_; status_="Loading organ…";
 }
 void Processor::worker() {
  try {
@@ -77,7 +79,8 @@ void Processor::worker() {
   while(!quit_.load()) {
     delete retired_.exchange(nullptr);
     std::string path,exportPath; unsigned serial;
-    { std::lock_guard lock(mutex_); serial=requestSerial_; if(serial!=handled) path=requestedPath_;exportPath=std::move(diagnosticDestination_);diagnosticDestination_.clear(); }
+    std::vector<std::pair<std::string,bool>> registration;bool legacy=false;
+    { std::lock_guard lock(mutex_); serial=requestSerial_; if(serial!=handled){path=requestedPath_;registration=requestedRegistration_;legacy=legacyRestore_;}exportPath=std::move(diagnosticDestination_);diagnosticDestination_.clear(); }
     if(!exportPath.empty()) {
       try {std::lock_guard lock(mutex_);diagnostics.exportBundle(exportPath,status_,metadata_);status_="Diagnostics exported";}
       catch(const std::exception& e){std::lock_guard lock(mutex_);status_=e.what();}
@@ -93,11 +96,19 @@ void Processor::worker() {
             if(quit_.load() || serial!=requestSerial_)return false;
             status_="Loading organ: "+std::to_string(percent)+"% "+detail;return true;
           });
-        std::ostringstream metadata;
-        for(const auto& c:instance->controls()) metadata << c.group << " / " << c.name << '\n';
+        auto surface=instance->surface();surface->generation=serial;
+        for(const auto& [key,value]:registration)
+          for(unsigned i=0;i<surface->controls.size();++i)
+            if(surface->controls[i].key==key)instance->stop(i,value);
+        instance->publishControls();
+        diagnostics.text("Loaded "+instance->name()+"; authored controls="+std::to_string(surface->controls.size()));
+        diagnostics.text(surface->metadata());
+        auto memory=sampleCacheStats();
+        diagnostics.text("Shared immutable sample payloads in this plugin process: "+std::to_string(memory.bytes)+" bytes, "+std::to_string(memory.blocks)+" blocks; cumulative reuse="+std::to_string(memory.reused));
         { std::lock_guard lock(mutex_);
           if(serial!=requestSerial_ || quit_.load())continue;
-          savedPath_=path;status_=instance->name();metadata_=metadata.str();
+          savedPath_=path;status_=instance->name()+(legacy?" — legacy registration reset; recheck automation":"");
+          metadata_=surface->metadata();surface_=surface;
           delete pending_.exchange(instance.release());
         }
       } catch(const std::exception& e) { std::lock_guard lock(mutex_); if(serial==requestSerial_)status_="Load failed: "+std::string(e.what());diagnostics.text(e.what()); }
@@ -125,10 +136,11 @@ tresult PLUGIN_API Processor::process(ProcessData& data) {
   if(data.symbolicSampleSize!=kSample32)return kResultFalse;
   if(!retired_.load()) if(auto* next=pending_.exchange(nullptr)) {
     auto* old=active_;active_=next;
-    for(unsigned i=0;i<stops_.size();++i) active_->stop(i,stops_[i].load()>=.5);
+    active_->markReady();
     retired_.store(old);
   }
   if(panic_.exchange(false) && active_)active_->panic();
+  if(active_)active_->applyCommands();
   // Merge event and automation offsets without allocating or sorting.
   int cursor=0;
   const int events=data.inputEvents?data.inputEvents->getEventCount():0;
@@ -163,11 +175,24 @@ tresult PLUGIN_API Processor::process(ProcessData& data) {
     if(next<=cursor)next=cursor+1;
     render(data,cursor,next-cursor);cursor=next;
   }
+  if(active_)active_->publishControls();
   if(data.numOutputs)data.outputs[0].silenceFlags=active_?0:3;
   return kResultOk;
 }
 tresult PLUGIN_API Processor::notify(IMessage* message) {
   if(!message)return kInvalidArgument;
+  if(std::strcmp(message->getMessageID(),"control")==0 || std::strcmp(message->getMessageID(),"audition")==0) {
+    int64 generation=0,index=0,value=0;
+    auto* attrs=message->getAttributes();
+    if(attrs->getInt("generation",generation)!=kResultOk||attrs->getInt("index",index)!=kResultOk)return kInvalidArgument;
+    std::lock_guard lock(mutex_);
+    if(!surface_ || generation!=surface_->generation || !surface_->ready.load())return kResultFalse;
+    if(std::strcmp(message->getMessageID(),"audition")==0) {
+      if(index>=0 && index<16)surface_->audition.store(int(index));
+    } else if(index>=0 && size_t(index)<surface_->controls.size() && attrs->getInt("value",value)==kResultOk)
+      surface_->values[index].requested.store(value?1:0);
+    return kResultOk;
+  }
   if(std::strcmp(message->getMessageID(),"cancel")==0) {
     std::lock_guard lock(mutex_);requestedPath_.clear();++requestSerial_;status_="Load cancelled";
     return kResultOk;
@@ -190,29 +215,40 @@ tresult PLUGIN_API Processor::notify(IMessage* message) {
     std::lock_guard lock(mutex_);response->setMessageID("status");
     response->getAttributes()->setBinary("status",status_.data(),uint32(status_.size()));
     response->getAttributes()->setBinary("controls",metadata_.data(),uint32(metadata_.size()));
+    if(surface_) {
+      response->getAttributes()->setInt("generation",surface_->generation);
+      response->getAttributes()->setInt("ready",surface_->ready.load()?1:0);
+      std::vector<unsigned char> states;
+      for(unsigned i=0;i<surface_->controls.size();++i)states.push_back(surface_->values[i].actual.load()?1:0);
+      response->getAttributes()->setBinary("states",states.data(),uint32(states.size()));
+    }
     return sendMessage(response);
   }
   return AudioEffect::notify(message);
 }
-tresult PLUGIN_API Processor::getState(IBStream* state) {
-  IBStreamer s(state,kLittleEndian);std::string path;
-  {std::lock_guard lock(mutex_);path=savedPath_;}
-  if(!s.writeInt32u(0x4F565354)||!s.writeInt32u(1)||!s.writeInt32u(uint32(path.size()))||s.writeRaw(path.data(),path.size())!=path.size()||!s.writeDouble(gain_.load()))return kResultFalse;
-  for(auto& v:stops_)if(!s.writeDouble(v.load()))return kResultFalse;
+tresult PLUGIN_API Processor::getState(IBStream* stream) {
+  ProjectState state;state.gain=gain_.load();
+  {std::lock_guard lock(mutex_);state.path=savedPath_;
+    if(surface_)for(unsigned i=0;i<surface_->controls.size();++i) {
+      const int pending=surface_->values[i].requested.load();
+      state.controls.emplace_back(surface_->controls[i].key,pending>=0?pending!=0:surface_->values[i].actual.load());
+    }
+  }
+  return writeProjectState(stream,state)?kResultOk:kResultFalse;
+}
+tresult PLUGIN_API Processor::setState(IBStream* stream) {
+  ProjectState state;if(!readProjectState(stream,state))return kResultFalse;
+  gain_.store(state.gain);
+  if(!state.path.empty()) {
+    std::lock_guard lock(mutex_);requestedPath_=std::move(state.path);
+    requestedRegistration_=std::move(state.controls);legacyRestore_=state.legacy;
+    ++requestSerial_;status_="Restoring organ…";
+  }
   return kResultOk;
 }
-tresult PLUGIN_API Processor::setState(IBStream* state) {
-  std::string path;double gain;std::array<double,128> stops;
-  if(!readState(state,path,gain,stops))return kResultFalse;
-  gain_.store(gain);for(unsigned i=0;i<128;++i)stops_[i].store(stops[i]);
-  if(!path.empty())requestLoad(path);
-  return kResultOk;
-}
-tresult PLUGIN_API Controller::setComponentState(IBStream* state) {
-  std::string path;double gain;std::array<double,128> stops;
-  if(!readState(state,path,gain,stops))return kResultFalse;
-  setParamNormalized(gainId,gain);
-  for(unsigned i=0;i<128;++i)setParamNormalized(stopBase+i,stops[i]);
+tresult PLUGIN_API Controller::setComponentState(IBStream* stream) {
+  ProjectState state;if(!readProjectState(stream,state))return kResultFalse;
+  setParamNormalized(gainId,state.gain);
   return kResultOk;
 }
 }

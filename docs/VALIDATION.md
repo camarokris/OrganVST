@@ -128,3 +128,30 @@ ZIP contains 29 DLLs (including the engine), sounds and debug symbols; the sourc
 ZIP contains 12,401 entries including the patched pinned dependency trees. No
 Barton/sample-pack or .git directory was present. The host-facing loader imports
 only KERNEL32 and Windows CRT API-set DLLs, as checked with llvm-objdump.
+
+## Version 0.2 colleague feedback repair
+
+Reviewed the September 24 colleague report and all three embedded screenshots.
+The report establishes a 0.1 FL Studio catalog/sounding failure; it does not
+establish a complete host acceptance pass. Source report/images remain local.
+
+Local Apple Silicon Debug build: Steinberg validator 47/47 passed. Expanded
+CTest suite 6/6 passed (3.42 seconds): engine_render, asset_packs,
+independent_instances, authored_catalog, plugin_registration, sample_cache.
+The actual VST3 is dynamically loaded for plugin_registration: authored defaults,
+control index 131 playback, stale message rejection and editorless keyed state
+recall are exercised. The synthetic catalog tests 134 controls, authored couplers,
+switch-controlled stops and auxiliary audition. Cache tests cover concurrent loads,
+changed payloads, lifetime after the original instance is destroyed and reclamation.
+An initial one-pipe fixture exercised GrandOrgue's effects semantics; it was
+corrected to two pipes for the ordinary manual/coupler regression.
+
+Local Barton catalog inspection: 170 writable authored controls, comprising 131
+stops, 28 couplers, 7 switches and 4 tremulants. Great has 46 entries, Solo 44,
+Accomp 22, Pedal 18; second-touch, trap, toe-piston and console-toy groups remain.
+Read-only dependent controls stay in the engine; their controlling switches are
+exposed. This catalog inspection is not a listening pass of every Barton rank.
+
+Native Windows 0.2 CI and colleague FL Studio retesting remain pending until
+recorded below. Shared payload counts measure immutable main sample bytes, not
+complete process RSS; loop/release metadata and voices remain per instance.

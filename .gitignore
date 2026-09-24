@@ -51,3 +51,5 @@ __pycache__/
 *.pfx
 *.key
 *.mobileprovision
+# Private colleague feedback (text and screenshots).
+/Organ VST Notes.docx

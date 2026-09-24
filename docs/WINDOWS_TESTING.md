@@ -18,14 +18,19 @@ project state, and reliable offline-load readiness are still unfinished.
    one compatible definition. No third-party organ samples are supplied.
 
 MIDI channels 1–15 address successive manuals; channel 16 is the pedalboard.
-Enable a stop before playing. This alpha has one stereo output. Ordinary
+Select a division in the left column, then enable a stop before playing. The
+channel is shown below its controls. Audition plays a half-second note without
+requiring FL Studio MIDI input. Division and control lists both have paging.
+This alpha has one stereo output. Ordinary
 percussion follows the definition's one-shot setting; deliberately reiterating
 ranks retain the source behavior.
 
 Wait until loading finishes before playback or export. Offline exports during
 loading are not yet protected against incomplete output. Recall currently saves
-only the path, master gain, and initial control parameters; verify registrations
-manually. A missing pack must be loaded again using Load organ.
+the path, master gain, and all exposed controls by definition keys. Combinations
+and crescendo programming are not yet included. Version 0.1 projects reset to
+authored registration defaults; recreate/recheck their automation and registration.
+Start a fresh test project for 0.2. A missing pack must be loaded again using Load organ.
 
 ## Diagnostics
 
@@ -54,3 +59,20 @@ includes GPLv3-or-later ZitaConvolver code alongside GPL-2.0-or-later GrandOrgue
 Preserve all supplied licenses and source materials when sharing this alpha.
 Barton and any other independently obtained packs have separate licenses and must
 not be added to the plugin package or public repository.
+
+## Version 0.2 retest priorities
+
+- Confirm Great, Solo and auxiliary divisions are available and there are no
+  generated repeating 16/8/4/BAS/MEL coupler lists. Barton has 170 authored
+  writable controls; legitimate controls with identical labels are kept distinct.
+- Enable a stop in each division and use Audition, then send MIDI on the displayed
+  channel. Test authored couplers with a destination division stop enabled.
+- Try xylophone/trap switches and authored reiteration; ordinary percussion should
+  decay. Auxiliary/second-touch divisions retain their original relationships.
+- Save/reopen and duplicate an instance after loading completes. Controls beyond
+  the first 128 must retain their state. Distinct registrations must stay independent.
+- Duplicate instances share immutable sample payloads only when the DAW loads them
+  in the same process. Each instance retains its own voices, controls and metadata;
+  memory will therefore grow somewhat. Initial loading still decodes samples.
+- Export diagnostics after reproducing a problem. Logs include catalog entries and
+  shared-sample byte/block counts. Do not send the organ pack with the report.

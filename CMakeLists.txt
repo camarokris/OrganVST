@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(OrganVST VERSION 0.1.0 LANGUAGES C CXX)
+project(OrganVST VERSION 0.2.0 LANGUAGES C CXX)
 if(APPLE)
   enable_language(OBJC OBJCXX)
 endif()
@@ -22,7 +22,7 @@ find_package(LibArchive REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 set(GITHUB_PROJECT "GrandOrgue/grandorgue")
 set(FULL_VERSION "${PROJECT_VERSION}-OrganVST")
-set(NUM_WIN_VERSION "0,1,0")
+set(NUM_WIN_VERSION "0,2,0")
 set(HAVE_ATOMIC 1)
 set(HAVE_MUTEX 1)
 configure_file("${GO_SOURCE}/src/core/go_defs.h.in" generated/go_defs.h)
@@ -32,8 +32,9 @@ add_library(organ_engine STATIC ${GO_CORE_SOURCES} ${GO_ENGINE_SOURCES}
   "${GO_SOURCE}/src/grandorgue/midi/dialog-creator/GOMidiConfigDispatcher.cpp"
   "${GO_SOURCE}/submodules/ZitaConvolver/source/zita-convolver.cc"
   src/engine/HostServices.cpp)
-target_sources(organ_engine PRIVATE src/engine/OrganInstance.cpp src/assets/OrganAssets.cpp)
+target_sources(organ_engine PRIVATE src/engine/OrganInstance.cpp src/engine/OrganVSTSampleCache.cpp src/assets/OrganAssets.cpp)
 target_include_directories(organ_engine PUBLIC
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/engine"
   "${GO_SOURCE}/src/core" "${GO_SOURCE}/src/grandorgue"
   "${GO_SOURCE}/submodules/ZitaConvolver/source"
   "${CMAKE_CURRENT_BINARY_DIR}/generated")
@@ -134,3 +135,37 @@ if(MINGW)
     target_sources(${probe} PRIVATE src/platform/WindowsTestHost.rc)
   endforeach()
 endif()
+
+add_executable(catalog_probe src/tools/catalog_probe.cpp)
+target_link_libraries(catalog_probe PRIVATE organ_engine)
+target_compile_definitions(catalog_probe PRIVATE GO_RESOURCE_DIR="${GO_SOURCE}")
+if(MINGW)
+  target_sources(catalog_probe PRIVATE src/platform/WindowsTestHost.rc)
+endif()
+add_test(NAME authored_catalog COMMAND ${Python3_EXECUTABLE}
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/catalog_test.py $<TARGET_FILE:catalog_probe>
+  ${CMAKE_CURRENT_BINARY_DIR}/catalog-fixtures)
+
+if(ORGANVST_BUILD_PLUGIN)
+  add_executable(plugin_probe src/tools/plugin_probe.cpp
+    "${public_sdk_SOURCE_DIR}/source/common/memorystream.cpp"
+    "${public_sdk_SOURCE_DIR}/source/vst/hosting/plugprovider.cpp")
+  target_link_libraries(plugin_probe PRIVATE sdk_hosting)
+  if(APPLE)
+    target_sources(plugin_probe PRIVATE "${public_sdk_SOURCE_DIR}/source/vst/hosting/module_mac.mm")
+    set_source_files_properties("${public_sdk_SOURCE_DIR}/source/vst/hosting/module_mac.mm" PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+    target_link_libraries(plugin_probe PRIVATE "-framework Cocoa")
+  elseif(MINGW)
+    target_sources(plugin_probe PRIVATE "${public_sdk_SOURCE_DIR}/source/vst/hosting/module_win32.cpp")
+  endif()
+  add_dependencies(plugin_probe OrganVST)
+  add_test(NAME plugin_registration COMMAND plugin_probe
+    "${CMAKE_BINARY_DIR}/VST3/$<CONFIG>/OrganVST.vst3"
+    "${CMAKE_CURRENT_BINARY_DIR}/catalog-fixtures/catalog.organ")
+  set_tests_properties(plugin_registration PROPERTIES DEPENDS authored_catalog TIMEOUT 40)
+endif()
+
+add_executable(sample_cache_test tests/sample_cache.cpp src/engine/OrganVSTSampleCache.cpp)
+target_include_directories(sample_cache_test PRIVATE src/engine)
+target_link_libraries(sample_cache_test PRIVATE Threads::Threads)
+add_test(NAME sample_cache COMMAND sample_cache_test)
