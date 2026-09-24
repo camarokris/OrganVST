@@ -26,6 +26,7 @@ def main():
             dest.mkdir(parents=True)
             run("git", "init", str(dest))
             run("git", "remote", "add", "origin", spec["url"], cwd=dest)
+        run("git", "config", "core.autocrlf", "false", cwd=dest)
         actual_url = subprocess.check_output(
             ["git", "remote", "get-url", "origin"], cwd=dest, text=True).strip()
         if actual_url != spec["url"]:
