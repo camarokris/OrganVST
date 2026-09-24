@@ -2,8 +2,8 @@
 
 Status: the first colleague report found catalog duplication/truncation and silent
 controls in 0.1. The 0.2 report found good organization and no crashes but silent Barton divisions.
-Version 0.3 adds explicit input routing and selectable low-key audition; retesting
-is pending. Use the alpha artifact from a successful
+The colleague reports 0.3 worked as expected; this is exploratory feedback, not a
+full matrix pass. Version 0.4 layers, tabs and pedals now need retesting. Use the alpha artifact from a successful
 Windows VST3 alpha workflow run. That run must pass Steinberg validation and
 include dependencies, symbols, and licenses. Failed runs provide build evidence
 only; they do not provide an approved test package.
@@ -15,9 +15,13 @@ interface, driver, sample rate, buffer size, and organ pack/version.
 - Load a pack; confirm progress and useful errors for missing assets.
 - Play each manual/pedal assignment; toggle stops and couplers. For each failure,
   record separately whether Audition and FL Studio notes are silent, the selected
-  route, received MIDI channel/note, stop names, and displayed note range.
-- Try Play this division with channel-1 input for each group, then Use MIDI channels.
+  route/layers, received MIDI channel/note, stop names, and displayed note range.
+- Try Play only this, selected layers and Layer all divisions with channel-1 input,
+  then independent simultaneous parts using Use MIDI channels.
   Follow INSTALL-AND-TEST.md for Barton toy pitches and native channel assignments.
+- Program a quiet/loud crescendo and automate it and the expression enclosures.
+  Save/reopen, duplicate instances, and verify their independent saved programs.
+- Confirm Stops/Couplers/Tremulants are separate and no Tremulants division appears.
 - Change the input route while holding a note; confirm it releases, and verify
   that the new route survives saving/reopening with the editor closed.
 - Check sustained notes, release tails, ordinary percussion, and authored repeats.

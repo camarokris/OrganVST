@@ -59,7 +59,7 @@ int main(int argc,char** argv) {
       for(unsigned i=0;i<4000;++i)process();
       note.noteOn.channel=0;events.addEvent(note);energy=0;
       for(unsigned i=0;i<200;++i)energy+=process();check(energy>0,"Channel-1 input did not reach second division");
-      state=saved(component);check(state.inputDivision==1,"Input route missing from state");
+      state=saved(component);check(state.layerMask==2,"Input route missing from state");
       check(route(1,-1)==kResultOk,"Native channel route failed");process();
       for(unsigned i=0;i<4000;++i)process();
       check(process()==0,"Route change left a stuck note");
@@ -70,18 +70,38 @@ int main(int argc,char** argv) {
       check(connection->notify(&audition)==kResultOk,"Low-key audition command failed");
       energy=0;for(unsigned i=0;i<200;++i)energy+=process();check(energy>0,"Short keyboard audition silent");
       for(unsigned i=0;i<4000;++i)process();check(process()==0,"Audition left a stuck note");
+      auto action=[&](const char* name,int index,int value=0) {
+        HostMessage msg;msg.setMessageID(name);msg.getAttributes()->setInt("generation",1);msg.getAttributes()->setInt("index",index);msg.getAttributes()->setInt("value",value);return connection->notify(&msg);
+      };
+      HostMessage layers;layers.setMessageID("layers");layers.getAttributes()->setInt("generation",1);layers.getAttributes()->setInt("mask",3);
+      check(connection->notify(&layers)==kResultOk,"Layer mask rejected");process();
+      command(1,131,false);process();check(action("capture",0)==kResultOk,"Capture low failed");process();
+      command(1,131,true);process();check(action("capture",16)==kResultOk,"Capture high failed");process();
+      action("pedal",-1,127);process();
+      check(action("pedal",-1,0)==kResultOk,"Crescendo command failed");process();
+      check(!saved(component).controls[131].second,"Crescendo low did not clear stop");
+      action("pedal",-1,127);process();check(saved(component).controls[131].second,"Crescendo high did not restore stop");
+      action("pedal",0,0);process();events.addEvent(note);
+      for(unsigned i=0;i<4000;++i)process();check(process()==0,"Expression zero did not mute");
+      action("pedal",0,127);energy=0;for(unsigned i=0;i<200;++i)energy+=process();check(energy>0,"Layered channel-1 input silent after reopening expression");
+      action("pedal",0,67);process();state=saved(component);
+      check(state.layerMask==3&&state.programmed==((1u<<16)|1)&&state.enclosures[0].second==67,"Layer/pedal/crescendo state incomplete");
       // Replace the live engine using its full keyed registration, without an editor.
       restore(state);for(unsigned i=0;i<1000;++i){process();std::this_thread::sleep_for(std::chrono::milliseconds(2));if(command(2,131,true)==kResultOk)break;}
       check(command(1,131,false)==kResultFalse,"Previous organ generation accepted");process();
       check(saved(component).controls[131].second,"Editorless registration recall failed");
-      check(saved(component).inputDivision==1,"Editorless input routing recall failed");
+      check(saved(component).layerMask==3,"Editorless input routing recall failed");
       events.addEvent(note);energy=0;for(unsigned i=0;i<200;++i)energy+=process();check(energy>0,"Restored single-division route is silent");
-      // V2 has identical registration encoding without the V3 trailing route.
+      check(saved(component).programmed==((1u<<16)|1)&&saved(component).enclosures[0].second==67,"Performance recall failed");
+      // V2 registration layout is the same; V3 stores a single destination plus one.
       MemoryStream old;check(writeProjectState(&old,state),"Legacy fixture failed");
       old.seek(4,IBStream::kIBSeekSet,nullptr);IBStreamer writer(&old,kLittleEndian);writer.writeInt32u(2);
-      old.seek(0,IBStream::kIBSeekSet,nullptr);ProjectState previous;check(readProjectState(&old,previous)&&previous.inputDivision==-1&&previous.controls==state.controls,"V2 registration compatibility failed");
+      old.seek(0,IBStream::kIBSeekSet,nullptr);ProjectState previous;check(readProjectState(&old,previous)&&previous.layerMask==0&&previous.controls==state.controls,"V2 registration compatibility failed");
+      MemoryStream v3;ProjectState single=state;single.layerMask=3; // raw 3 encodes channel index 2 in V3
+      check(writeProjectState(&v3,single),"V3 fixture failed");v3.seek(4,IBStream::kIBSeekSet,nullptr);IBStreamer v3writer(&v3,kLittleEndian);v3writer.writeInt32u(3);
+      v3.seek(0,IBStream::kIBSeekSet,nullptr);ProjectState migrated;check(readProjectState(&v3,migrated)&&migrated.layerMask==4,"V3 route migration failed");
       processor->setProcessing(false);component->setActive(false);
-      std::cout<<"PASS actual VST3 loading, defaults, stale commands, >128 playback, input routing, short-key audition, route-change tails and V2/V3 editorless recall\n";
+      std::cout<<"PASS actual VST3 loading, defaults, stale commands, >128 playback, input routing, short-key audition, route-change tails and V2/V3/V4 editorless recall, layers, expression and crescendo\n";
       return 0;
     }
     throw std::runtime_error("No instrument component");

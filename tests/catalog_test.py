@@ -8,7 +8,13 @@ base=(root/'test.organ').read_text()
 # Reuse an original synthetic loop, never an external sample pack.
 base=base[:base.index('[Manual001]')].replace('NumberOfManuals=1','NumberOfManuals=3')
 base=base.replace('NumberOfRanks=2','NumberOfRanks=1\nNumberOfSwitches=1')
-base+='''[Rank001]
+base=base.replace('NumberOfEnclosures=0','NumberOfEnclosures=1').replace('[WindchestGroup001]','[WindchestGroup001]\nEnclosure001=1')
+base+='''[Enclosure001]
+Name=Test swell
+AmpMinimumLevel=0
+Displayed=N
+
+[Rank001]
 Name=Shared rank
 FirstMidiNoteNumber=60
 NumberOfLogicalPipes=2

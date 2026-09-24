@@ -263,3 +263,34 @@ https://github.com/camarokris/OrganVST/actions/runs/36008635926/artifacts/108112
 This completes the planned feedback repair and build delivery; it does not close
 the original full-release gates or establish that the colleague's FL Studio setup
 now passes. That retest remains required.
+
+## Version 0.4 layers, tabs and pedals
+
+Colleague feedback reports 0.3 worked as expected, then asks for simultaneous
+divisions, distinct tabs and pedals. This is exploratory FL Studio feedback, not
+completion of the full test matrix. The additional private log reports 170 Barton
+controls, 1,267,168,620 shared sample bytes, 312 channel-1 note observations and
+repeated single-division route changes. The diagnostic search found no error/failure
+entries. The raw log remains ignored and is not distributed.
+
+Local Apple Silicon Debug: validator 47/47; CTest 7/7 in 2.77 seconds. Added routing
+coverage for overlapping source-channel notes and independent channels. Expanded
+the original synthetic fixture with a zero-minimum enclosure. Tests exercise
+expression attenuation, captured quiet/loud crescendo, skipping to the nearest
+stored lower step, capture clearing, actual VST3 messages and V2/V3/V4 state recall.
+The first test attempted to recall an unchanged pedal position; corrected it to
+move away and back, matching deliberate preservation of manual stop edits while
+the pedal is stationary.
+
+Private Barton numerical tests at 48 kHz with 127-frame buffers passed all ten
+representative auditions plus layered registration, captured crescendo on a held
+note and final note release. Both Main and Solo enclosures were found. With both
+closed, summed energy was 0.359474 versus 8.74885 open. Barton specifies a 20%
+minimum level, so closed enclosures intentionally remain audible. These are
+numerical engine tests, not a listening or standalone GrandOrgue parity pass.
+
+New crescendo storage and route bookkeeping are preallocated. Capture/playback
+uses atomic storage; serialization and diagnostic file I/O stay off the audio
+thread. The full pre-existing upstream real-time audit remains open. The new
+32-step crescendo is plugin-owned and does not import standalone crescendo banks.
+Local interactive host checks and native Windows delivery follow below.

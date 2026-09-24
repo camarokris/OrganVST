@@ -142,3 +142,9 @@ Version 0.3 is implemented and tested locally; REAPER input routing/recall and
 all ten representative Barton division auditions pass. Native Windows run
 36008635926 at df6bbc4 succeeded, including packaged validation. New Mac and
 Windows builds are available for colleague retesting. See docs/VALIDATION.md.
+
+## Version 0.4 follow-up
+
+The colleague reports 0.3 works as expected in FL Studio; remaining requests are
+simultaneous divisions, separated categories, tremulants as a tab and pedals.
+See docs/LAYERS_PEDALS_PLAN.md. This does not constitute a full FL Studio matrix pass.

@@ -45,17 +45,19 @@ are extracted to a private managed folder and removed when the engine is destroy
 Multi-definition ZIPs currently require manual extraction and definition selection.
 Extraction rejects traversal, links, ambiguous names, damaged data, and packs above
 64 GiB or 200,000 entries. Use **Cancel load** to cancel an in-flight load. WAV and WavPack samples are loaded
-by GrandOrgue. Loading happens in the background. All authored writable controls are available by division, with filters for stops,
-couplers, switches and tremulants. Generated internal couplers are excluded.
+by GrandOrgue. Loading happens in the background. All authored writable controls are available by division, with separate Stops, Couplers, Tremulants, Switches and Pedals tabs. Generated internal couplers are excluded.
 The first 128 catalog entries are connected to the 128 Boolean DAW parameters;
 controls beyond those slots remain fully usable and saved through the editor.
 Use Previous/Next within a division; the division list has its own paging.
-The editor shows each division's MIDI channel/range and the last received note.
-Use **Play this division** to route all incoming channels to the selected division,
-or **Use MIDI channels** for manuals 1–15 and pedalboard 16. The explicit route is
-saved; merely browsing divisions does not change it. Audition provides a selectable
-pitch for short toy keyboards as well as ordinary manuals. See
-[the Windows testing guide](docs/WINDOWS_TESTING.md) for Barton toy pitches.
+Use **Add to layer** to play several divisions from one keyboard, **Play only this**
+for one destination, or **Use MIDI channels** for independent parts on manuals
+1–15 and pedalboard 16. Layers are marked in the sidebar and saved per instance.
+The Pedals tab provides definition expression controls and a 32-step registration
+crescendo with capture/clear. Both can be automated. Crescendo programs are
+plugin-owned; standalone GrandOrgue banks are not imported. The editor also shows
+MIDI ranges and incoming notes, and offers selectable-pitch audition.
+See [the Windows testing guide](docs/WINDOWS_TESTING.md) for programming instructions
+and Barton channels/toy pitches.
 Output is stereo only so far.
 
 The plugin has separate processor/controller components, sample-offset event
@@ -72,13 +74,14 @@ same plugin process; voices, registration, loop/release metadata and auxiliary
 buffers remain per instance. Separate sandbox processes cannot share this cache.
 The cache compares content, so changed sample data cannot reuse stale bytes.
 
-Version 0.3 saves the input route and reads 0.2 keyed registrations unchanged.
+Version 0.4 saves layers, expression and crescendo programs, and reads 0.2/0.3
+registrations and routing.
 Both restore all exposed controls by stable definition keys. Old 0.1
 projects restore their pack and gain with authored registration defaults because
 the old control indices included internal couplers. Recheck old automation lanes
 and registrations; use a new test project for this alpha.
 
-Current limitations include incomplete combinations/crescendo state restoration, no readiness safeguard
+Current limitations include standalone combination/crescendo-bank import, no readiness safeguard
 for offline export during asynchronous loading, no assignable mappings or MIDI
 learn, no auxiliary routing, no full tabbed interface/console,
 no asset collection/relink UI, and an unfinished real-time safety audit. Do not use

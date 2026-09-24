@@ -41,6 +41,9 @@ public:
   void note(unsigned channel,unsigned pitch,unsigned velocity);
   void stop(unsigned index,bool value);
   void panic();
+  void expression(unsigned index,unsigned value);
+  void crescendo(unsigned value);
+  void restorePerformance(const PerformanceState& state);
   void applyCommands();
   void publishControls();
   void markReady() { surface_->ready.store(true); }
@@ -55,6 +58,8 @@ private:
   GOConfig config_;
   HostOrgan organ_;
   std::vector<ControlInfo> controls_;
+  std::vector<GOEnclosure*> enclosures_;
+  int crescendoStep_=-1;
   std::array<GOManual*,16> manuals_{};
   std::array<float,maxFrames*2> output_{};
   std::string name_,path_;

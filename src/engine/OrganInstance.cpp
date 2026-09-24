@@ -5,6 +5,7 @@
 #include "model/GOCoupler.h"
 #include "model/GOTremulant.h"
 #include "model/GOSwitch.h"
+#include "model/GOEnclosure.h"
 #include "sound/buffer/GOSoundBufferPlanarMutable.h"
 #include <algorithm>
 #include <stdexcept>
@@ -81,6 +82,15 @@ OrganInstance::OrganInstance(const std::filesystem::path& definition,
       surface_->controls.push_back({c.key,c.name,c.group,c.kind,c.channel,first,first+(count?count-1:0)});
     }
     surface_->values=std::make_unique<ControlValue[]>(controls_.size());
+    auto& perf=surface_->performance;
+    if(organ_.GetEnclosureCount()>maxEnclosures)throw std::runtime_error("Organ exceeds 64 expression enclosures");
+    for(unsigned i=0;i<organ_.GetEnclosureCount();++i) {
+      auto* enclosure=organ_.GetEnclosureElement(i);enclosures_.push_back(enclosure);
+      perf.enclosures.push_back({"Enclosure"+std::to_string(i),enclosure->GetName().ToStdString()});
+    }
+    perf.pedals=std::make_unique<PedalValue[]>(enclosures_.size());
+    perf.steps=std::make_unique<std::atomic<unsigned char>[]>(crescendoSteps*controls_.size());
+    for(unsigned i=0;i<crescendoSteps*controls_.size();++i)perf.steps[i].store(0);
     publishControls();
   } catch (...) {
     if(prepared_) { organ_.AbortPlayback(); organ_.GOSoundSamplerPlayerProxy::Disconnect(); organ_.GetSoundEngine().DestroyEngine(); }
@@ -104,11 +114,56 @@ void OrganInstance::stop(unsigned index,bool value) {
   if(index<controls_.size()) controls_[index].button->SetButtonState(value);
 }
 void OrganInstance::panic() { organ_.AllNotesOff();auditionChannel_=-1;auditionFrames_=0; }
+void OrganInstance::expression(unsigned index,unsigned value) {
+  if(index<enclosures_.size())enclosures_[index]->SetEnclosureValue(std::min(value,127u));
+}
+void OrganInstance::crescendo(unsigned value) {
+  value=std::min(value,127u);auto& perf=surface_->performance;
+  perf.crescendoActual.store(int(value));
+  const unsigned step=value*crescendoSteps/128;
+  if(int(step)==crescendoStep_)return;
+  crescendoStep_=int(step);
+  const auto programmed=perf.programmed.load();
+  for(int stored=int(step);stored>=0;--stored)if(programmed&(1u<<stored)) {
+    for(unsigned i=0;i<controls_.size();++i)stop(i,perf.steps[stored*controls_.size()+i].load()!=0);
+    break;
+  }
+}
+void OrganInstance::restorePerformance(const PerformanceState& state) {
+  auto& perf=surface_->performance;
+  for(const auto& [key,value]:state.enclosures)
+    for(unsigned i=0;i<perf.enclosures.size();++i)if(key==perf.enclosures[i].key)expression(i,value);
+  for(unsigned step=0;step<crescendoSteps;++step) {
+    for(const auto& [key,value]:state.steps[step])
+      for(unsigned i=0;i<controls_.size();++i)if(key==controls_[i].key)perf.steps[step*controls_.size()+i].store(value?1:0);
+  }
+  perf.programmed.store(state.programmed);
+  // Registration is restored separately: do not overwrite later manual edits.
+  const unsigned value=unsigned(std::clamp(state.crescendo,0.0,1.0)*127+.5);
+  perf.crescendoActual.store(value);crescendoStep_=int(value*crescendoSteps/128);
+}
 void OrganInstance::applyCommands() {
   for(unsigned i=0;i<controls_.size();++i) {
     const int requested=surface_->values[i].requested.exchange(-1);
     if(requested>=0)stop(i,requested!=0);
   }
+  auto& perf=surface_->performance;
+  for(unsigned i=0;i<enclosures_.size();++i) {
+    const int value=perf.pedals[i].requested.exchange(-1);
+    if(value>=0)expression(i,unsigned(value));
+  }
+  // Capture before moving the pedal; both operations are bounded and preallocated.
+  const int capture=perf.capture.exchange(-1),clear=perf.clear.exchange(-1);
+  if(capture>=0 && capture<int(crescendoSteps)) {
+    perf.revision.fetch_add(1);
+    for(unsigned i=0;i<controls_.size();++i)perf.steps[capture*controls_.size()+i].store(controls_[i].button->IsEngaged()?1:0);
+    perf.programmed.fetch_or(1u<<capture);perf.revision.fetch_add(1);
+  }
+  if(clear>=0 && clear<int(crescendoSteps)) {
+    perf.revision.fetch_add(1);perf.programmed.fetch_and(~(1u<<clear));perf.revision.fetch_add(1);
+  }
+  const int value=perf.crescendoRequested.exchange(-1);
+  if(value>=0)crescendo(unsigned(value));
   const int audition=surface_->audition.exchange(-1);
   if(audition>=0 && audition<16*128) {
     const int channel=audition/128;
@@ -123,6 +178,7 @@ void OrganInstance::applyCommands() {
   }
 }
 void OrganInstance::publishControls() {
+  if(surface_)for(unsigned i=0;i<enclosures_.size();++i)surface_->performance.pedals[i].actual.store(enclosures_[i]->GetEnclosureValue());
   if(surface_)for(unsigned i=0;i<controls_.size();++i)
     surface_->values[i].actual.store(controls_[i].button->IsEngaged());
 }

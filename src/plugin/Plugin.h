@@ -12,7 +12,7 @@
 namespace organvst {
 inline const Steinberg::FUID processorId(0xB79DAA93,0xCA7C4358,0xA8CEE630,0xC317E541);
 inline const Steinberg::FUID controllerId(0x7B2BE706,0xBF624D12,0x95C844E6,0xD2BD2719);
-inline constexpr Steinberg::Vst::ParamID gainId=0,stopBase=100;
+inline constexpr Steinberg::Vst::ParamID gainId=0,crescendoId=1,expressionBase=10,stopBase=100;
 
 class Processor final : public Steinberg::Vst::AudioEffect {
 public:
@@ -42,6 +42,7 @@ private:
   std::shared_ptr<ControlSurface> surface_;
   std::vector<std::pair<std::string,bool>> requestedRegistration_;
   bool legacyRestore_=false;
+  PerformanceState requestedPerformance_;
   unsigned requestSerial_=0;
   std::atomic<unsigned> rate_{48000};
   std::atomic<bool> quit_{false},panic_{false};
@@ -49,8 +50,9 @@ private:
   OrganInstance* active_=nullptr;
   std::array<std::atomic<double>,128> stops_{};
   std::atomic<double> gain_{0.5};
-  std::atomic<int> inputDivision_{-1},lastInput_{-1};
-  int activeInputDivision_=-1; // audio thread only
+  std::atomic<int> layerMask_{0},lastInput_{-1};
+  NoteRouter router_;
+  int activeLayerMask_=0; // audio thread only
   std::thread loader_;
 };
 
@@ -68,10 +70,16 @@ public:
   void control(unsigned,bool);
   void audition(int,int);
   void route(int);
+  void layers(unsigned);
+  void pedal(int,unsigned);
+  void program(bool capture);
   std::string status="No organ loaded",metadata;
   unsigned generation=0;
   bool ready=false;
-  int inputDivision=-1,lastInput=-1;
+  unsigned layerMask=0,programmed=0,crescendo=0;
+  int lastInput=-1;
+  std::vector<PedalDescriptor> enclosures;
+  std::vector<unsigned> expression;
   std::vector<bool> actual;
   std::vector<ControlDescriptor> catalog;
 };

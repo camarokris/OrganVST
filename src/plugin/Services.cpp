@@ -41,7 +41,7 @@ Diagnostics::Diagnostics(std::filesystem::path directory):directory_(std::move(d
   auto timestamp=std::chrono::system_clock::now().time_since_epoch().count();
   file_=directory_/(std::to_string(timestamp)+"-"+std::to_string(sequence++)+".log");
   output_.open(file_);
-  text("OrganVST 0.3.0 development session; GrandOrgue 85304331; VST3 SDK 3.8.1");
+  text("OrganVST 0.4.0 development session; GrandOrgue 85304331; VST3 SDK 3.8.1");
 }
 void Diagnostics::rotate() {
   output_.close();std::error_code error;

@@ -38,6 +38,25 @@ int main(int argc,char** argv) {
           first->stop(selected,false);
           std::cout<<"AUDITION PASS "<<surface->controls[selected].group<<" / "<<surface->controls[selected].name<<" energy="<<e<<'\n';
         }
+        auto& perf=surface->performance;
+        for(unsigned i=0;i<perf.enclosures.size();++i)std::cout<<"ENCLOSURE "<<perf.enclosures[i].name<<'\n';
+        perf.capture.store(0);first->applyCommands();
+        unsigned mask=0;
+        for(int channel:{15,0,1,2,3,4,5,6,7,8}) {
+          for(unsigned i=0;i<surface->controls.size();++i)if(surface->controls[i].channel==channel && surface->controls[i].kind=="Stop"){first->stop(i,true);mask|=1u<<channel;break;}
+        }
+        perf.capture.store(16);first->applyCommands();
+        NoteRouter router;router.dispatch(mask,0,60,100,[&](unsigned ch,unsigned pitch,unsigned vel){first->note(ch,pitch,vel);});
+        require(energy(*first)>0,"Layered Barton registration silent");
+        for(unsigned i=0;i<perf.enclosures.size();++i)first->expression(i,0);
+        energy(*first);const double closed=energy(*first);
+        for(unsigned i=0;i<perf.enclosures.size();++i)first->expression(i,127);
+        energy(*first);const double opened=energy(*first);
+        require(opened>closed*2,"Barton expression does not attenuate");
+        first->crescendo(0);energy(*first,4000);require(energy(*first)==0,"Barton low crescendo did not release registration");
+        first->crescendo(127);require(energy(*first)>0,"Barton crescendo did not recall layers on held note");
+        first->panic();energy(*first,4000);require(energy(*first)==0,"Barton layered note release failed");
+        std::cout<<"PERFORMANCE PASS layered divisions, captured crescendo, expression closed="<<closed<<" open="<<opened<<'\n';
         auto memory=sampleCacheStats();
         std::cout<<"SAMPLE CACHE bytes="<<memory.bytes<<" blocks="<<memory.blocks<<" reuses="<<memory.reused<<'\n';
       }
@@ -62,7 +81,25 @@ int main(int argc,char** argv) {
     OrganInstance second(argv[1],argv[2],GO_RESOURCE_DIR,48000,progress);
     auto after=sampleCacheStats();require(after.bytes==before.bytes&&after.reused>before.reused,"Duplicate instance copied immutable payloads");
     first.reset();second.note(0,60,100);require(energy(second)>0,"Samples died with first instance");second.panic();
-    std::cout<<"PASS catalog, defaults, >128, coupler, switch, auxiliary audition, shared sample lifetime; shared_bytes="<<after.bytes<<" blocks="<<after.blocks<<" reuses="<<after.reused<<'\n';
+    auto perfSurface=second.surface();auto& perf=perfSurface->performance;
+    require(perf.enclosures.size()==1,"Expression enclosure missing");
+    second.note(0,60,100);require(energy(second)>0,"Expression reference silent");
+    second.expression(0,0);energy(second);require(energy(second)==0,"Closed enclosure still sounds");
+    second.expression(0,127);require(energy(second)>0,"Opened enclosure silent");second.panic();energy(second,2400);
+    for(unsigned i=0;i<second.controls().size();++i)second.stop(i,false);
+    perf.capture.store(0);second.applyCommands();
+    second.stop(0,true);perf.capture.store(16);second.applyCommands();
+    second.crescendo(0);second.publishControls();require(!perfSurface->values[0].actual.load(),"Crescendo low registration not applied");
+    second.crescendo(127);second.publishControls();require(perfSurface->values[0].actual.load(),"Crescendo skipped a stored intermediate step");
+    second.expression(0,67);second.publishControls();PerformanceState snapshot;
+    require(perfSurface->snapshotPerformance(snapshot),"Performance snapshot failed");
+    require(snapshot.programmed==((1u<<16)|1)&&snapshot.enclosures[0].second==67,"Performance state incomplete");
+    OrganInstance recalled(argv[1],argv[2],GO_RESOURCE_DIR,48000,progress);recalled.restorePerformance(snapshot);
+    recalled.crescendo(0);recalled.publishControls();require(!recalled.surface()->values[0].actual.load(),"Recalled low crescendo failed");
+    recalled.crescendo(127);recalled.publishControls();require(recalled.surface()->values[0].actual.load(),"Recalled high crescendo failed");
+    require(recalled.surface()->performance.pedals[0].actual.load()==67,"Expression recall failed");
+    perf.clear.store(16);second.applyCommands();require(perf.programmed.load()==1,"Crescendo clear failed");
+    std::cout<<"PASS expression, crescendo capture/skip/clear/recall; catalog, defaults, >128, coupler, switch, auxiliary audition, shared sample lifetime; shared_bytes="<<after.bytes<<" blocks="<<after.blocks<<" reuses="<<after.reused<<'\n';
     return 0;
   }catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}
 }
