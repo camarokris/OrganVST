@@ -22,7 +22,25 @@ int main(int argc,char** argv) {
     auto first=std::make_unique<OrganInstance>(argv[1],argv[2],GO_RESOURCE_DIR,48000,progress);
     auto surface=first->surface();std::set<std::string> keys;
     for(unsigned i=0;i<surface->controls.size();++i){const auto& c=surface->controls[i];require(keys.insert(c.key).second,"Duplicate control key");std::cout<<i<<'\t'<<c.key<<'\t'<<c.group<<'\t'<<c.kind<<'\t'<<c.name<<'\t'<<c.channel+1<<'\t'<<surface->values[i].actual.load()<<'\n';}
-    if(argc>3)return 0; // Inspection mode for private packs.
+    if(argc>3) {
+      if(std::string(argv[3])=="audition") {
+        for(unsigned i=0;i<surface->controls.size();++i)first->stop(i,false);
+        for(int channel:{15,0,1,2}) {
+          unsigned selected=unsigned(surface->controls.size());
+          for(unsigned i=0;i<surface->controls.size();++i)
+            if(surface->controls[i].channel==channel && surface->controls[i].kind=="Stop"){selected=i;break;}
+          require(selected<surface->controls.size(),"Missing representative division");
+          first->stop(selected,true);surface->audition.store(channel);first->applyCommands();
+          double e=energy(*first);require(e>0,"Representative division audition is silent");
+          energy(*first,2400);require(energy(*first)==0,"Representative audition tail did not end");
+          first->stop(selected,false);
+          std::cout<<"AUDITION PASS "<<surface->controls[selected].group<<" / "<<surface->controls[selected].name<<" energy="<<e<<'\n';
+        }
+        auto memory=sampleCacheStats();
+        std::cout<<"SAMPLE CACHE bytes="<<memory.bytes<<" blocks="<<memory.blocks<<" reuses="<<memory.reused<<'\n';
+      }
+      return 0;
+    } // Private packs are never required by CI.
     require(surface->controls.size()==134,"Authored catalog is incomplete or includes generated couplers");
     auto find=[&](const std::string& name){for(unsigned i=0;i<surface->controls.size();++i)if(surface->controls[i].name==name)return i;throw std::runtime_error("Missing control "+name);};
     require(surface->values[find("Default voice")].actual.load(),"Authored default was cleared");

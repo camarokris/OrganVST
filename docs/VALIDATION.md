@@ -155,3 +155,19 @@ exposed. This catalog inspection is not a listening pass of every Barton rank.
 Native Windows 0.2 CI and colleague FL Studio retesting remain pending until
 recorded below. Shared payload counts measure immutable main sample bytes, not
 complete process RSS; loop/release metadata and voices remain per instance.
+
+REAPER 7.80 inspection opened the 0.2 editor, loaded Barton through its picker,
+showed Great and Pedal 2T and confirmed persistent highlights after toggling
+Gt Tuba 16 and Bass Drum (beyond the former control limit). Closing the editor
+then exposed a heap-corruption crash: Editor::close called forget after
+CFrame::close, which already releases its ownership. Removed that second release;
+repeat host lifecycle verification is required before delivery.
+
+`catalog_probe ... audition` rendered representative Barton divisions at 48 kHz:
+Pedal Contra Bourdon 32 energy 0.425144, Accomp Contra Viole 16 0.290959,
+Great Gt Tuba 16 1.6959, Solo Tuba 16 1.6959; each short note's tail ended.
+These are numerical render checks, not a listening comparison. On this Mac's
+Debug build the load-plus-test process took 53.25 seconds wall / 51.63 seconds user,
+with 1,385,121,496 bytes peak memory footprint (macOS time -l). Shared main payloads
+were 1,267,168,620 bytes across 2,504 unique blocks, with 1,952 reuses within the pack.
+These numbers do not measure sustained-chord CPU/headroom or a second Barton copy.

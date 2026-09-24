@@ -107,7 +107,7 @@ public:
     return true;
   }
   void PLUGIN_API close() override {
-    timer=nullptr;view=nullptr;if(frame){frame->close();frame->forget();frame=nullptr;}
+    timer=nullptr;view=nullptr;if(frame){frame->close();frame=nullptr;}
   }
 private:
   Controller& controller;View* view=nullptr;VSTGUI::SharedPointer<VSTGUI::CVSTGUITimer> timer;
