@@ -28,8 +28,10 @@ matrix. No additional private report is published.
 
 ## Status
 
-Implementation and local automated checks complete; native packaging and host UI
-checks are in progress. Local CTest 7/7 passes, including actual VST3 performance
+Implementation, local automated checks and REAPER host UI/recall checks complete;
+native Windows packaging and validation complete (run 36028054385).
+Windows CTest 8/8 and packaged validator 47/47 passed; colleague FL Studio 0.4
+retest remains pending. Local CTest 7/7 passes, including actual VST3 performance
 recall, and validator 47/47 passes. The attached private 0.3 log confirms Barton
 loaded 170 controls, all 312 logged note observations were channel 1, and routing
 was repeatedly changed to one division. No error/failure entries were found by

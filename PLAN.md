@@ -153,3 +153,8 @@ See docs/LAYERS_PEDALS_PLAN.md. This does not constitute a full FL Studio matrix
 editorless project recall verified. Controller expression parameter restoration
 covered by actual VST3 test. Final local validator 47/47 and CTest 7/7 passed;
 Windows CI and colleague 0.4 FL Studio retest remain pending.
+
+0.4 delivery complete: Windows run 36028054385 passed 8/8 CTests and 47/47 packaged
+validator checks; downloaded package hashes/source exclusions verified. Matching
+Mac development bundle and symbols installed/copied locally. Colleague FL Studio
+0.4 retest remains outstanding; original unfinished release gates are unchanged.

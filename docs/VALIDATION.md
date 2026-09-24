@@ -309,3 +309,20 @@ Final controller-state review also added restoration of expression automation
 values before opening the editor, including default reset for absent enclosures.
 The actual VST3 probe verifies this alongside engine recall. Final local rebuild:
 validator 47/47; CTest 7/7 in 2.86 seconds.
+
+Installed final code ca3fbec and reopened REAPER: Barton showed Great/Solo layers,
+stored crescendo step 32 and Main 100%/Solo 52%. Export diagnostics produced a ZIP
+with logs, status and reproduction notes; verified mask 6, crescendo 125, step mask
+2147483649 and expression 127/67. No home prefix, sample or definition files were
+included. The final Mac bundle is ad-hoc signed with matching dSYM in dist/local-0.4.0;
+it depends on local Homebrew libraries and is not a portable Mac release.
+
+Windows run 36028054385 at ca3fbecf55febb0d4a5c8232e945ece98860e9da passed:
+build validator 47/47, CTest 8/8 in 2.23 seconds and packaged validator 47/47 with
+MSYS2 removed from PATH. Downloaded artifacts and verified all 161 manifest hashes,
+29 runtime DLLs, updated layer/pedal guide and 12,414 corresponding-source entries.
+Verified private colleague materials, local projects and sample packs are excluded.
+Download: https://github.com/camarokris/OrganVST/actions/runs/36028054385/artifacts/10820309081
+
+Version 0.4 feedback implementation and Mac/Windows development builds are ready.
+Colleague FL Studio 0.4 retesting and the original full-release gates remain open.
