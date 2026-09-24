@@ -21,7 +21,7 @@ Exact GrandOrgue and VST3 SDK revisions are in `dependencies.json`; recursive
 submodules include VSTGUI. The bootstrap script applies the tracked host patch.
 System libraries are not yet pinned or bundled, so this does not yet constitute a
 reproducible distributable build. The declared macOS 13 target has not been tested
-on macOS 13. Windows dependency configuration and packaging remain outstanding.
+on macOS 13. Windows has a separate CI build and packaging workflow described below.
 
 The VST3 is `build/VST3/Debug/OrganVST.vst3`. Its build runs Steinberg's validator.
 For local development, close the host before replacing an installed copy:
@@ -82,7 +82,9 @@ See [docs/VALIDATION.md](docs/VALIDATION.md) for actual results and limitations.
 GPL-2.0-or-later, preserving GrandOrgue's notices and SDK linking exception in
 `LICENSE`. Upstream copyright notices remain in fetched source and patches.
 Steinberg VST3 SDK and VSTGUI have their own licenses in their pinned source trees.
-Release source/license assembly is still pending.
+Windows artifacts include project/upstream source snapshots and license notices.
+The combined instrument also includes GPLv3-or-later ZitaConvolver code; retain
+its notices and consult the supplied dependency licenses when redistributing.
 
 Barton and other third-party sample packs are external assets with separate
 licenses. Keep them in ignored `sample-packs/` or `local-assets/`. Never add them to
@@ -96,7 +98,8 @@ and the MSYS2 UCRT64 toolchain. It builds pinned engine/SDK sources, runs synthe
 tests and Steinberg validation, collects runtime DLLs and debug symbols, then
 validates the packaged instrument with MSYS2 removed from PATH. Successful runs
 publish downloadable workflow artifacts, not production releases. See
-[Windows installation and testing](docs/WINDOWS_TESTING.md).
+[Windows installation and testing](docs/WINDOWS_TESTING.md) and
+[Windows build architecture](docs/WINDOWS_BUILD.md).
 
 Actions are pinned by commit. MSYS2 packages are rolling versions recorded in the
 artifact manifest; the complete toolchain is not yet reproducibly pinned. FL Studio

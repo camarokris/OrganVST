@@ -1,8 +1,9 @@
 # FL Studio colleague testing checklist
 
-Status: pending. No Windows binary or verified distribution package is available
-from this checkpoint. Run this checklist only after a native Windows build passes
-Steinberg validation and the package includes dependencies, symbols, and licenses.
+Status: colleague testing pending. Use the alpha artifact from a successful
+Windows VST3 alpha workflow run. That run must pass Steinberg validation and
+include dependencies, symbols, and licenses. Failed runs provide build evidence
+only; they do not provide an approved test package.
 
 Record plugin build/commit, Windows version, FL Studio version, CPU/RAM, audio
 interface, driver, sample rate, buffer size, and organ pack/version.
