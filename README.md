@@ -3,7 +3,8 @@
 An early GPL VST3 instrument using GrandOrgue's actual organ loader and playback
 engine. **This is an engineering prototype, not the completed release described
 in [PLAN.md](PLAN.md).** It currently builds and has been tested on Apple Silicon
-macOS. Native Windows builds are not yet verified.
+macOS. The Windows x64 alpha also passes native CI tests and Steinberg validation;
+FL Studio host testing is pending.
 
 ## Build on the development Mac
 
@@ -92,6 +93,9 @@ Git or bundle them with public releases. Tests generate original synthetic audio
 no Barton audio or artwork is tracked.
 
 ## Windows CI alpha builds
+
+[Download the validated Windows alpha](https://github.com/camarokris/OrganVST/actions/runs/35956216929/artifacts/10790274419)
+(build `74997ad`; GitHub sign-in required, artifact retention 30 days).
 
 The Windows VST3 alpha GitHub Actions workflow uses a native Windows 2022 runner
 and the MSYS2 UCRT64 toolchain. It builds pinned engine/SDK sources, runs synthetic

@@ -78,10 +78,9 @@ recall, offline-load readiness, aux routing, user MIDI/automation mappings,
 full tabs/console/crescendo, multi-definition ZIP selection/collection/relinking, diagnostic
 manifest coverage and export tests, and portable distribution assembly.
 
-Native Windows CI has compiled the engine and plugin; initial SDK validation
-failed while loading wxWidgets without Common Controls v6. The loader now supplies
-a manifest activation context; a successful validation/package run is still
-required. No colleague FL Studio test has run. macOS 13 compatibility and self-contained dynamic-library packaging have not
+Native Windows compilation, SDK validation and alpha packaging now pass as
+recorded below. Initial wxWidgets loading failures were resolved with a Common
+Controls v6 activation context. No colleague FL Studio test has run. macOS 13 compatibility and self-contained dynamic-library packaging have not
 been verified. Development build outputs are not distribution artifacts.
 
 ## ZIP implementation follow-up
@@ -105,3 +104,27 @@ Local follow-up: `actionlint .github/workflows/windows.yml` passed;
 `ctest --test-dir build --output-on-failure` passed 3/3 (2.12 seconds). These are
 Mac checks, not Windows host results. Public tracked files exclude sample packs,
 downloaded dependencies, binaries, logs and local DAW projects.
+
+### Successful Windows alpha run
+
+- Run: https://github.com/camarokris/OrganVST/actions/runs/35956216929
+- Source commit: `74997ad6dfc80fc91cfa81836b67e755b746319f`.
+- Native CTest: 4/4 passed, 1.75 seconds: engine_render, asset_packs,
+  independent_instances, windows_ui_tasks. Synthetic engine tests cover
+  44.1/48/96 kHz and irregular blocks; no Barton pack is present in CI.
+- Steinberg validator: 47 passed, 0 failed. The packaged plugin passes again
+  with PATH limited to Windows system directories. Unsupported extreme sample
+  rates are rejected during the validator's sample-rate capability test.
+- Packaged runtime DLLs, matching DWARF symbols, license notices, source snapshot,
+  install/checklist documents and SHA-256 manifest are available in the run's
+  `OrganVST-Windows-x64-74997ad...` artifact (30-day retention).
+
+This verifies Windows Server 2022 CI, not interactive Windows 10/11 or FL Studio.
+No Windows GUI interaction, colleague host test, listening pass, performance
+benchmark, production signing, or completed release acceptance is claimed.
+
+Downloaded artifact inspection: all 161 manifest file hashes matched. The plugin
+ZIP contains 29 DLLs (including the engine), sounds and debug symbols; the source
+ZIP contains 12,401 entries including the patched pinned dependency trees. No
+Barton/sample-pack or .git directory was present. The host-facing loader imports
+only KERNEL32 and Windows CRT API-set DLLs, as checked with llvm-objdump.

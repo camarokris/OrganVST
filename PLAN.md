@@ -102,7 +102,7 @@ and notarization require appropriate credentials.
 - Every complete-release acceptance gate remains open: standalone parity,
   real-time audit, full state/recall and offline readiness, configurable MIDI and
   automation, aux routing, complete UI/console, crescendo, asset management,
-  self-contained packaging, Windows validation, and colleague FL Studio tests.
+  full release packaging, broader Windows host validation, and colleague FL Studio tests.
 - See README.md for current build commands and prototype limitations.
 - Execution mode is active; the earlier plan-mode restriction no longer applies.
 
@@ -113,6 +113,9 @@ See docs/VALIDATION.md for actual verification results.
 Published the authorized public repository at https://github.com/camarokris/OrganVST.
 Windows x64 CI and packaging are configured, including native tests, SDK validation,
 private runtime libraries, symbols, source, licenses, and downloadable artifacts.
-Native compilation succeeds, but the first runs exposed loader/runtime failures;
-validation and packaging must pass before a Windows artifact is ready for colleague
-testing. Keep FL Studio results pending until the colleague runs the checklist.
+Run 35956216929 (commit 74997ad) passed native Windows compilation, 4/4 CTests,
+and 47/47 Steinberg validator tests, including the packaged plugin with MSYS2
+removed from PATH. The alpha and corresponding project source ZIPs are uploaded.
+Initial runtime loading failures were fixed with bundled DLLs and an explicit
+Common Controls v6 activation context. FL Studio remains pending; this alpha is
+ready for exploratory colleague testing, not the completed release.
