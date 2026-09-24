@@ -88,3 +88,16 @@ Barton and other third-party sample packs are external assets with separate
 licenses. Keep them in ignored `sample-packs/` or `local-assets/`. Never add them to
 Git or bundle them with public releases. Tests generate original synthetic audio;
 no Barton audio or artwork is tracked.
+
+## Windows CI alpha builds
+
+The Windows VST3 alpha GitHub Actions workflow uses a native Windows 2022 runner
+and the MSYS2 UCRT64 toolchain. It builds pinned engine/SDK sources, runs synthetic
+tests and Steinberg validation, collects runtime DLLs and debug symbols, then
+validates the packaged instrument with MSYS2 removed from PATH. Successful runs
+publish downloadable workflow artifacts, not production releases. See
+[Windows installation and testing](docs/WINDOWS_TESTING.md).
+
+Actions are pinned by commit. MSYS2 packages are rolling versions recorded in the
+artifact manifest; the complete toolchain is not yet reproducibly pinned. FL Studio
+host validation remains a separate colleague test.

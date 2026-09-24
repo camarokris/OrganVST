@@ -90,7 +90,7 @@ and notarization require appropriate credentials.
 ## Progress
 
 - Foundation committed locally as f7ff07a; repository-only author configured as
-  Kris Barrantes <kris.barrantes@outlook.com>. No remote or push.
+  Kris Barrantes <kris.barrantes@outlook.com>. GitHub publication authorized by the user on 2026-09-24.
 - Pinned dependencies fetched; host adaptation patch and reusable engine build.
 - Early VST3 processor/controller, background loading, basic control grid, stereo
   audio, fixed MIDI assignments, basic state, and diagnostic ZIP export implemented.
@@ -107,3 +107,9 @@ and notarization require appropriate credentials.
 - Execution mode is active; the earlier plan-mode restriction no longer applies.
 
 See docs/VALIDATION.md for actual verification results.
+
+## GitHub and Windows CI follow-up
+
+Windows x64 CI and packaging are being added. A successful native run is required
+before describing the Windows artifact as ready for colleague testing. Keep FL
+Studio results pending until the colleague actually runs the checklist.

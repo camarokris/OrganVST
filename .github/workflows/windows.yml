@@ -1,0 +1,85 @@
+name: Windows VST3 alpha
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows-x64:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-wxwidgets3.3-msw
+            mingw-w64-ucrt-x86_64-wavpack
+            mingw-w64-ucrt-x86_64-fftw
+            mingw-w64-ucrt-x86_64-yaml-cpp
+            mingw-w64-ucrt-x86_64-libarchive
+            mingw-w64-ucrt-x86_64-zlib
+      - name: Fetch pinned sources
+        run: |
+          set -o pipefail
+          mkdir -p logs
+          git config --global core.autocrlf false
+          python scripts/bootstrap.py 2>&1 | tee logs/bootstrap.log
+      - name: Configure
+        run: |
+          set -o pipefail
+          pacman -Q > logs/windows-packages.txt
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ \
+            -DSMTG_CREATE_BUNDLE_FOR_WINDOWS=ON 2>&1 | tee logs/configure.log
+      - name: Build and validate
+        run: |
+          set -o pipefail
+          cmake --build build --parallel 4 2>&1 | tee logs/build.log
+      - name: Engine and recovery tests
+        run: |
+          set -o pipefail
+          ctest --test-dir build --output-on-failure 2>&1 | tee logs/tests.log
+      - name: Package alpha and debug symbols
+        run: |
+          python scripts/package_windows.py --build build --output dist --runtime "$MINGW_PREFIX/bin"
+      - name: Validate packaged plugin without MSYS2 on PATH
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          & .\dist\validation\validator.exe .\dist\OrganVST-Windows-x64\OrganVST.vst3 2>&1 | Tee-Object logs\packaged-validator.log
+          if ($LASTEXITCODE -ne 0) { throw "Packaged validator failed: $LASTEXITCODE" }
+      - name: Upload alpha package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: OrganVST-Windows-x64-${{ github.sha }}
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload build evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-build-evidence-${{ github.sha }}
+          path: |
+            logs/
+            build/Testing/Temporary/LastTest.log
+          retention-days: 30
