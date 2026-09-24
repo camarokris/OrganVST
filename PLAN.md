@@ -89,8 +89,19 @@ and notarization require appropriate credentials.
 
 ## Progress
 
-- Foundation files written; commit pending repository author configuration.
-- Dependency integration, plugin implementation, and all acceptance gates pending.
+- Foundation committed locally as f7ff07a; repository-only author configured as
+  Kris Barrantes <kris.barrantes@outlook.com>. No remote or push.
+- Pinned dependencies fetched; host adaptation patch and reusable engine build.
+- Early VST3 processor/controller, background loading, basic control grid, stereo
+  audio, fixed MIDI assignments, basic state, and diagnostic ZIP export implemented.
+- Headless synthetic rendering passes at 44.1/48/96 kHz; Barton single-stop render
+  succeeds. Steinberg validator passes 47 tests. REAPER scan, editor, fixture load,
+  and visible stop toggle verified.
+- Every complete-release acceptance gate remains open: standalone parity,
+  real-time audit, full state/recall and offline readiness, configurable MIDI and
+  automation, aux routing, complete UI/console, crescendo, asset management,
+  self-contained packaging, Windows validation, and colleague FL Studio tests.
+- See README.md for current build commands and prototype limitations.
 - Execution mode is active; the earlier plan-mode restriction no longer applies.
 
 See docs/VALIDATION.md for actual verification results.

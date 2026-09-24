@@ -1,0 +1,293 @@
+diff --git a/src/grandorgue/GOOrganController.h b/src/grandorgue/GOOrganController.h
+index ed7280c..bf660ad 100644
+--- a/src/grandorgue/GOOrganController.h
++++ b/src/grandorgue/GOOrganController.h
+@@ -170,6 +170,7 @@ public:
+   // Clears the organ modification flag
+   void ResetOrganModified();
+ 
++  void SetHostResourceDirectory(const wxString &path) { m_FileStore.SetHostResourceDirectory(path); }
+   const GOFileStore &GetFileStore() const { return m_FileStore; }
+   GODialogSizeSet &GetDialogSizeSet() { return m_config.m_DialogSizes; }
+ 
+diff --git a/src/grandorgue/combinations/GOSetter.cpp b/src/grandorgue/combinations/GOSetter.cpp
+index 2662a04..ef62422 100644
+--- a/src/grandorgue/combinations/GOSetter.cpp
++++ b/src/grandorgue/combinations/GOSetter.cpp
+@@ -1436,11 +1436,15 @@ void GOSetter::ButtonStateChanged(int id, bool newState) {
+   } break;
+   case ID_SETTER_AUDIO_PANIC: {
+     wxCommandEvent event(wxEVT_MENU, ID_AUDIO_PANIC);
+-    wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
++    #ifndef ORGANVST_HOST
++  wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
++#endif
+   } break;
+   case ID_SETTER_FILE_EXIT: {
+     wxCommandEvent event(wxEVT_MENU, ID_FILE_EXIT);
+-    wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
++    #ifndef ORGANVST_HOST
++  wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
++#endif
+   } break;
+   }
+ }
+@@ -1452,7 +1456,9 @@ void GOSetter::PreparePlayback() {
+   wxCommandEvent event(wxEVT_SETVALUE, ID_METER_FRAME_SPIN);
+ 
+   event.SetInt(m_pos);
++  #ifndef ORGANVST_HOST
+   wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
++#endif
+   m_CrescendoDisplay.SetContent(
+     wxString::Format(wxT("%d"), m_crescendopos + 1));
+   m_BankDisplay.SetContent(wxString::Format(wxT("%c"), m_bank + wxT('A')));
+@@ -1594,7 +1600,9 @@ void GOSetter::SetPosition(int pos, bool push) {
+   if (pos != old_pos) {
+     wxCommandEvent event(wxEVT_SETVALUE, ID_METER_FRAME_SPIN);
+     event.SetInt(m_pos);
+-    wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
++    #ifndef ORGANVST_HOST
++  wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
++#endif
+   }
+ }
+ 
+@@ -1651,7 +1659,9 @@ void GOSetter::SetTranspose(int value) {
+   if (m_OrganController->GetSettings().Transpose() != value) {
+     wxCommandEvent event(wxEVT_SETVALUE, ID_METER_TRANSPOSE_SPIN);
+     event.SetInt(value);
+-    wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
++    #ifndef ORGANVST_HOST
++  wxTheApp->GetTopWindow()->GetEventHandler()->AddPendingEvent(event);
++#endif
+   }
+   m_OrganController->GetSettings().Transpose(value);
+   m_OrganController->AllNotesOff();
+diff --git a/src/grandorgue/config/GOConfig.cpp b/src/grandorgue/config/GOConfig.cpp
+index cdd11c4..4024ce0 100644
+--- a/src/grandorgue/config/GOConfig.cpp
++++ b/src/grandorgue/config/GOConfig.cpp
+@@ -919,3 +919,16 @@ void GOConfig::Flush() {
+   if (!go_rename_file(tmp_name, m_ConfigFilePath.string()))
+     return;
+ }
++
++void GOConfig::ConfigureForHost(const wxString &dataDir, const wxString &resourceDir) {
++  LoadDefaults();
++  m_ResourceDir = resourceDir;
++  m_AudioGroups = {wxT("Main")};
++  OrganSettingsPath(dataDir + wxT("/settings"));
++  OrganCachePath(dataDir + wxT("/cache"));
++  OrganCombinationsPath(dataDir + wxT("/combinations"));
++  ManageCache(false);
++  LoadConcurrency(0);
++  Concurrency(0);
++  RandomizeSpeaking(false);
++}
+diff --git a/src/grandorgue/config/GOConfig.h b/src/grandorgue/config/GOConfig.h
+index 7bb8676..a3a6ec5 100644
+--- a/src/grandorgue/config/GOConfig.h
++++ b/src/grandorgue/config/GOConfig.h
+@@ -220,6 +220,8 @@ public:
+   GODialogSizeSet m_DialogSizes;
+ 
+   void Load();
++  // Plugin-owned defaults: no standalone config reads or writes.
++  void ConfigureForHost(const wxString &dataDir, const wxString &resourceDir);
+ 
+   int GetLanguageId() const;
+   void SetLanguageId(int langId);
+diff --git a/src/grandorgue/loader/GOFileStore.h b/src/grandorgue/loader/GOFileStore.h
+index 57e19a4..9d18ed0 100644
+--- a/src/grandorgue/loader/GOFileStore.h
++++ b/src/grandorgue/loader/GOFileStore.h
+@@ -37,6 +37,7 @@ private:
+     wxString &errMsg);
+ 
+ public:
++  void SetHostResourceDirectory(const wxString &path) { m_ResourceDirectory = path; }
+   GOFileStore(const GOConfig &config);
+ 
+   const wxString &GetResourceDirectory() const { return m_ResourceDirectory; }
+diff --git a/src/grandorgue/loader/GOOrganReader.cpp b/src/grandorgue/loader/GOOrganReader.cpp
+index ff227f0..6625569 100644
+--- a/src/grandorgue/loader/GOOrganReader.cpp
++++ b/src/grandorgue/loader/GOOrganReader.cpp
+@@ -125,6 +125,9 @@ GOOrganReader::GOOrganReader(
+ 
+     if (settingsOdfHash != wxEmptyString)
+       if (settingsOdfHash != m_LoadedOrganInfo.odfHash) {
++#ifdef ORGANVST_HOST
++        throw wxString("Combination file does not match this organ definition");
++#else
+         if (
+           wxMessageBox(
+             _("The .cmb file does not exactly match the current "
+@@ -136,11 +139,15 @@ GOOrganReader::GOOrganReader(
+           == wxNO) {
+           m_ConfigDB.ClearCMB();
+         }
++#endif
+       }
+   } else {
+     bool hasOldGoSettings = m_ConfigDB.ReadData(odfIniFile, CMBSetting, true);
+ 
+-    if (hasOldGoSettings)
++    if (hasOldGoSettings) {
++#ifdef ORGANVST_HOST
++      throw wxString("Legacy GrandOrgue 0.2 settings require conversion in standalone GrandOrgue");
++#else
+       if (
+         wxMessageBox(
+           _("The ODF contains GrandOrgue 0.2 styled saved "
+@@ -151,6 +158,8 @@ GOOrganReader::GOOrganReader(
+         == wxNO) {
+         m_ConfigDB.ClearCMB();
+       }
++#endif
++    }
+   }
+ 
+   /* skip informational items */
+diff --git a/src/grandorgue/sound/GOSoundOrganEngine.cpp b/src/grandorgue/sound/GOSoundOrganEngine.cpp
+index 77d9377..05381da 100644
+--- a/src/grandorgue/sound/GOSoundOrganEngine.cpp
++++ b/src/grandorgue/sound/GOSoundOrganEngine.cpp
+@@ -711,3 +711,23 @@ std::vector<float> GOSoundOrganEngine::GetMeterInfo() {
+   }
+   return result;
+ }
++
++void GOSoundOrganEngine::RenderHost(
++  GOSoundBufferPlanarMutable *outputs, unsigned count, unsigned frames) {
++  assert(m_LifecycleState.load() == LifecycleState::BUILT);
++  assert(mp_threads.empty());
++  assert(frames > 0 && frames <= m_NSamplesPerBuffer);
++  assert(count == m_OutputStates.size());
++  // Dependency order is explicit, avoiding scheduler and device locks.
++  for (auto *task : mp_TremulantTasks) task->RenderHost(frames);
++  for (auto &task : mp_WindchestTasks) task->RunHost();
++  for (auto *task : mp_AudioGroupTasks) task->RenderHost(frames);
++  for (unsigned i = 0; i < count; ++i) {
++    auto &task = *m_OutputStates[i].mp_task;
++    task.SetHostFrames(frames);
++    task.RunHost();
++    outputs[i].CopyFrom(task);
++  }
++  mp_ReleaseTask->RenderHost();
++  m_SamplerPlayer.AdvanceTime(frames);
++}
+diff --git a/src/grandorgue/sound/GOSoundOrganEngine.h b/src/grandorgue/sound/GOSoundOrganEngine.h
+index 1ee6d8c..3eb597c 100644
+--- a/src/grandorgue/sound/GOSoundOrganEngine.h
++++ b/src/grandorgue/sound/GOSoundOrganEngine.h
+@@ -363,6 +363,10 @@ public:
+    * Constructors and destructors
+    */
+ 
++  // Host owns this engine exclusively. No StartEngine/streaming callbacks.
++  // Build with no workers, reverb disabled, and a maximum-sized buffer.
++  void RenderHost(GOSoundBufferPlanarMutable *outputs, unsigned count, unsigned frames);
++
+   GOSoundOrganEngine(GOOrganModel &organModel, GOMemoryPool &memoryPool);
+   // Defined in the .cpp file because the destructor of std::unique_ptr requires
+   // the complete type of the managed object, which is only forward-declared
+diff --git a/src/grandorgue/sound/tasks/GOSoundBufferTaskBase.h b/src/grandorgue/sound/tasks/GOSoundBufferTaskBase.h
+index 3f8bf5e..7724166 100644
+--- a/src/grandorgue/sound/tasks/GOSoundBufferTaskBase.h
++++ b/src/grandorgue/sound/tasks/GOSoundBufferTaskBase.h
+@@ -22,6 +22,7 @@ class GOSchedulerThread;
+ class GOSoundBufferTaskBase : public GOSoundTaskBase,
+                               public GOSoundBufferPlanarManaged {
+ public:
++  void SetHostFrames(unsigned frames) { Assign(GetData(), GetNChannels(), frames); }
+   GOSoundBufferTaskBase(
+     TaskPriority priority,
+     bool isRepeatable,
+diff --git a/src/grandorgue/sound/tasks/GOSoundGroupTask.cpp b/src/grandorgue/sound/tasks/GOSoundGroupTask.cpp
+index 5784510..d967e42 100644
+--- a/src/grandorgue/sound/tasks/GOSoundGroupTask.cpp
++++ b/src/grandorgue/sound/tasks/GOSoundGroupTask.cpp
+@@ -199,3 +199,17 @@ void GOSoundGroupTask::WaitAndDiscardContent() {
+   // can enter in Run()
+   DiscardContent();
+ }
++
++void GOSoundGroupTask::RenderHost(unsigned frames) {
++  // BuildEngine allocated MAX_FRAME_SIZE; host only uses a bounded view.
++  Assign(GetData(), 2, frames);
++  m_IsToComplete.store(true);
++  m_Active.Move();
++  m_Release.Move();
++  GO_DECLARE_LOCAL_SOUND_BUFFER(buffer, 2, frames)
++  buffer.FillWithSilence();
++  ProcessList(m_Active, false, buffer);
++  ProcessList(m_Release, true, buffer);
++  DeinterleaveFrom(buffer);
++  m_RunState.store(RUN_STATE_DONE);
++}
+diff --git a/src/grandorgue/sound/tasks/GOSoundGroupTask.h b/src/grandorgue/sound/tasks/GOSoundGroupTask.h
+index 5f72680..9000174 100644
+--- a/src/grandorgue/sound/tasks/GOSoundGroupTask.h
++++ b/src/grandorgue/sound/tasks/GOSoundGroupTask.h
+@@ -37,6 +37,7 @@ private:
+     GOSoundBufferMutable &outBuffer);
+ 
+ public:
++  void RenderHost(unsigned frames);
+   GOSoundGroupTask(
+     const GORoundCounter &roundCounter,
+     GOSoundSamplerPlayer &samplerPlayer,
+diff --git a/src/grandorgue/sound/tasks/GOSoundReleaseTask.cpp b/src/grandorgue/sound/tasks/GOSoundReleaseTask.cpp
+index 030d6f8..d1c1428 100644
+--- a/src/grandorgue/sound/tasks/GOSoundReleaseTask.cpp
++++ b/src/grandorgue/sound/tasks/GOSoundReleaseTask.cpp
+@@ -73,3 +73,8 @@ void GOSoundReleaseTask::CompleteRound() {
+   while ((sampler = m_List.Get()))
+     r_SamplerPlayer.PassSampler(sampler);
+ }
++
++void GOSoundReleaseTask::RenderHost() {
++  while (auto *sampler = m_List.Get())
++    r_SamplerPlayer.ProcessRelease(sampler);
++}
+diff --git a/src/grandorgue/sound/tasks/GOSoundReleaseTask.h b/src/grandorgue/sound/tasks/GOSoundReleaseTask.h
+index 24c7727..4215242 100644
+--- a/src/grandorgue/sound/tasks/GOSoundReleaseTask.h
++++ b/src/grandorgue/sound/tasks/GOSoundReleaseTask.h
+@@ -31,6 +31,7 @@ private:
+   void DoNewRound() override;
+ 
+ public:
++  void RenderHost();
+   GOSoundReleaseTask(
+     GOSoundSamplerPlayer &samplerPlayer,
+     ptr_vector<GOSoundGroupTask> &audioGroupTaskPtrs);
+diff --git a/src/grandorgue/sound/tasks/GOSoundTaskBase.h b/src/grandorgue/sound/tasks/GOSoundTaskBase.h
+index 5d3fde9..d4e590b 100644
+--- a/src/grandorgue/sound/tasks/GOSoundTaskBase.h
++++ b/src/grandorgue/sound/tasks/GOSoundTaskBase.h
+@@ -166,6 +166,10 @@ protected:
+   virtual void DoNewRound() {}
+ 
+ public:
++  // Single-owner host path. Only legal with no scheduler workers and no
++  // concurrent access to this instance. Does not enter scheduler locks.
++  void RunHost() { m_IsToComplete.store(true); DoRun(nullptr); m_RunState.store(RUN_STATE_DONE); }
++
+   /**
+    * @param priority this task's scheduling priority, see TaskPriority
+    * @param isRepeatable whether the task may be scheduled several times
+diff --git a/src/grandorgue/sound/tasks/GOSoundTremulantTask.h b/src/grandorgue/sound/tasks/GOSoundTremulantTask.h
+index b2f0487..e4a81b7 100644
+--- a/src/grandorgue/sound/tasks/GOSoundTremulantTask.h
++++ b/src/grandorgue/sound/tasks/GOSoundTremulantTask.h
+@@ -25,6 +25,7 @@ private:
+   bool DoRun(GOSchedulerThread *pThread) override;
+ 
+ public:
++  void RenderHost(unsigned frames) { m_SamplesPerBuffer = frames; RunHost(); }
+   GOSoundTremulantTask(
+     GOSoundSamplerPlayer &samplerPlayer, unsigned nFramesPerBuffer);
+ 
