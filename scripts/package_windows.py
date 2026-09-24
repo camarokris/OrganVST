@@ -20,7 +20,7 @@ def copy_dependencies(binary, destination, runtime):
     seen = set()
     runtime_files = {p.name.lower(): p for p in runtime.glob('*.dll')}
     system = Path(os.environ['WINDIR'])/'System32'
-    system_files = {p.name.lower() for p in system.glob('*.dll')}
+    system_files = {p.name.lower() for p in system.iterdir() if p.is_file()}
     while pending:
         current = pending.pop()
         for name in re.findall(r'DLL Name:\s*(\S+)', output('objdump', '-p', str(current))):
