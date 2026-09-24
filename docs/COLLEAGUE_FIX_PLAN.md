@@ -35,7 +35,15 @@ They are private test evidence and are not published with the source.
   actual-state synchronization, generation checks and version 2 keyed recall.
 - Immutable main sample payload cache implemented; mutable playback remains local.
 - Synthetic catalog and actual VST3 registration regressions pass locally. Added
-  cache concurrency/content-change/lifetime coverage. Native CI and UI checks pending.
+  cache concurrency/content-change/lifetime coverage. REAPER UI, repeated editor
+  closure, project recall and duplicate-instance checks passed after correcting a
+  pre-existing double release of the editor frame. Native CI results recorded below.
 - Barton catalog inspection reports 170 writable authored controls: 131 stops,
   28 couplers, 7 switches, 4 tremulants. All ten manual/pedal groups are represented;
   dependent read-only rank controls remain in the model and are operated by switches.
+
+- Windows run 35960861796 at a98467d passed native build/tests, packaged SDK
+  validation and artifact upload. Local 0.2 is installed on the development Mac.
+- Next acceptance is the colleague's FL Studio retest using a new project; full
+  console artwork, assignable automation, aux routing and remaining release gates
+  are outside this feedback repair and remain in PLAN.md.

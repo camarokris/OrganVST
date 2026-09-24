@@ -161,7 +161,7 @@ showed Great and Pedal 2T and confirmed persistent highlights after toggling
 Gt Tuba 16 and Bass Drum (beyond the former control limit). Closing the editor
 then exposed a heap-corruption crash: Editor::close called forget after
 CFrame::close, which already releases its ownership. Removed that second release;
-repeat host lifecycle verification is required before delivery.
+the successful repeat host lifecycle verification is recorded below.
 
 `catalog_probe ... audition` rendered representative Barton divisions at 48 kHz:
 Pedal Contra Bourdon 32 energy 0.425144, Accomp Contra Viole 16 0.290959,
@@ -171,3 +171,35 @@ Debug build the load-plus-test process took 53.25 seconds wall / 51.63 seconds u
 with 1,385,121,496 bytes peak memory footprint (macOS time -l). Shared main payloads
 were 1,267,168,620 bytes across 2,504 unique blocks, with 1,952 reuses within the pack.
 These numbers do not measure sustained-chord CPU/headroom or a second Barton copy.
+
+### Editor lifetime and host recall follow-up
+
+After the frame-release correction, REAPER 7.80 survived two custom/generic editor
+cycles, a loaded-editor close, subsequent reopen/close and file dialogs without a
+new crash. A new disposable project using the 134-control synthetic organ enabled
+Late voice (catalog index 131), duplicated the track, saved, reopened with both
+editors closed, and saved again. Both instances' serialized V2 engine states
+contained all 134 controls and Manual2/Stop0 remained enabled. Runtime diagnostics
+showed 104,972 shared payload bytes / 3 blocks for both instances, with reuse counts
+increasing. This is a focused host recall/duplication check, not full automation,
+transport or offline-export acceptance.
+
+Local machine: Apple M5 Pro, 24 GiB RAM, macOS 26.6.2, arm64. New Debug bundle and
+matching dSYM are in dist/local-0.2.0; installed copy is in the user's VST3 folder.
+The local bundle still depends on Homebrew and is for this development Mac.
+
+### Windows 0.2 delivery verification
+
+Native Windows CI run 35960861796 for code commit a98467d succeeded. Build-time
+Steinberg validator: 47 passed, 0 failed. CTest: 7/7 passed in 2.11 seconds.
+The packaged plugin also passed 47/47 validator tests with MSYS2 removed from PATH.
+Downloaded both ZIPs and verified all 161 manifest file hashes and the full commit
+identity. The corresponding-source ZIP contains 12,410 entries including the new
+control/state/cache sources and GrandOrgue patch. Neither ZIP includes the private
+report or sample packs. Artifact:
+https://github.com/camarokris/OrganVST/actions/runs/35960861796/artifacts/10792935114
+
+Local post-fix CTest: 6/6 passed in 2.39 seconds; validator: 47/47. The installed
+Mac bundle and dist/local-0.2.0 copy match and pass ad-hoc code-sign verification.
+Colleague FL Studio 0.2 testing remains pending. These checks do not complete the
+remaining full-release gates in PLAN.md.

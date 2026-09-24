@@ -125,3 +125,9 @@ ready for exploratory colleague testing, not the completed release.
 See docs/COLLEAGUE_FIX_PLAN.md for the September 24 report findings, repair sequence,
 and verification. This follow-up targets catalog completeness, control behavior,
 MIDI clarity and instance sample memory; full release acceptance remains separate.
+
+Version 0.2 fixes are implemented: authored catalogs and switches, division/type
+filtering, all-control UI/state, defaults, MIDI audition, immutable sample sharing
+and editor frame lifetime. Local tests and focused REAPER recall/duplication pass.
+Windows run 35960861796 at a98467d passed build, native tests, packaging and SDK
+validation. Version 0.2 colleague FL Studio retesting remains outstanding.
