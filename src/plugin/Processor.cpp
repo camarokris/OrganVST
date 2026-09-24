@@ -84,13 +84,14 @@ void Processor::worker() {
     }
     if(serial!=handled) {
       handled=serial;
+      if(path.empty())continue;
       try {
         diagnostics.text("Loading "+path+" at "+std::to_string(rate_.load())+" Hz");
         auto instance=std::make_unique<OrganInstance>(path,data,resourceDirectory(),rate_.load(),
-          [this,serial](unsigned percent,const std::string&) {
+          [this,serial](unsigned percent,const std::string& detail) {
             std::lock_guard lock(mutex_);
             if(quit_.load() || serial!=requestSerial_)return false;
-            status_="Loading organ: "+std::to_string(percent)+"%";return true;
+            status_="Loading organ: "+std::to_string(percent)+"% "+detail;return true;
           });
         std::ostringstream metadata;
         for(const auto& c:instance->controls()) metadata << c.group << " / " << c.name << '\n';
@@ -99,8 +100,8 @@ void Processor::worker() {
           savedPath_=path;status_=instance->name();metadata_=metadata.str();
           delete pending_.exchange(instance.release());
         }
-      } catch(const std::exception& e) { std::lock_guard lock(mutex_); status_="Load failed: "+std::string(e.what());diagnostics.text(status_); }
-      catch(...) { std::lock_guard lock(mutex_); status_="Load failed with an unknown error"; }
+      } catch(const std::exception& e) { std::lock_guard lock(mutex_); if(serial==requestSerial_)status_="Load failed: "+std::string(e.what());diagnostics.text(e.what()); }
+      catch(...) { std::lock_guard lock(mutex_); if(serial==requestSerial_)status_="Load failed with an unknown error"; }
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
@@ -167,6 +168,10 @@ tresult PLUGIN_API Processor::process(ProcessData& data) {
 }
 tresult PLUGIN_API Processor::notify(IMessage* message) {
   if(!message)return kInvalidArgument;
+  if(std::strcmp(message->getMessageID(),"cancel")==0) {
+    std::lock_guard lock(mutex_);requestedPath_.clear();++requestSerial_;status_="Load cancelled";
+    return kResultOk;
+  }
   if(std::strcmp(message->getMessageID(),"diagnostics")==0) {
     const void* bytes=nullptr;uint32 size=0;
     if(message->getAttributes()->getBinary("path",bytes,size)==kResultOk && size>0 && size<1048576) {

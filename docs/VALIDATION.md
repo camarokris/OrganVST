@@ -13,10 +13,20 @@ in dependencies.json. This checkpoint is not a complete release acceptance pass.
   **47 tests passed, 0 failed**. 64-bit audio is unsupported and reported as such.
   A validator lifecycle failure during development was fixed by stopping/joining
   the loader at terminate before reinitialization.
-- `ctest --test-dir build --output-on-failure`: **1/1 test passed**, 1.23 seconds
-  on the latest run. This test runs six synthetic engine renders (two registrations
+- `ctest --test-dir build --output-on-failure`: **3/3 tests passed**, 2.45 seconds
+  on the latest run. The engine test runs six synthetic renders (two registrations
   at 44.1/48/96 kHz) plus missing definition, missing sample, corrupt sample, and
   malformed definition failure cases.
+- Managed ZIP tests pass valid extraction, traversal (slash/backslash), absolute
+  paths, drive prefixes, Windows reserved names, case collisions, multiple/missing
+  definitions, cancellation, symlinks, truncation, and CRC corruption. Source ZIPs
+  remain byte-identical and managed directories are removed after success/failure.
+- Two actual OrganInstance engines loaded simultaneously from a loose definition
+  and, separately, from a ZIP: activating one leaves the other silent; panic on
+  one allows the other to sustain. Both tests pass, including cache cleanup.
+  This is an engine test, not a multi-instance DAW certification.
+- Explicit rerun of `build/bin/Debug/validator build/VST3/Debug/OrganVST.vst3`
+  after the ZIP integration: 47 passed, 0 failed.
 - `git check-ignore`: Barton ZIP/extraction, designated sample directories,
   dependency tree, build products, logs, and DAW project paths are ignored.
   Example source PNG and synthetic fixture WAV paths are not ignored.
@@ -53,8 +63,8 @@ REAPER 7.80 installed locally. At 48 kHz / 512 frames:
 - Observed the synthetic organ name and stops/couplers in the editor.
 - Clicked Stop 1 and observed its highlighted toggle state.
 
-The installed smoke-test copy predates the final legacy-combination error-handler
-patch; the subsequent source build and validator include that patch. No audible
+The installed smoke-test copy predates the legacy-combination error-handler
+patch and ZIP/cancellation UI. Subsequent source builds and validator include them. No audible
 host MIDI, project recall, multi-instance, automation playback, routing, offline
 export, or crash-recovery host pass is claimed. REAPER's tiny displayed idle CPU
 reading is not an instrument workload measurement.
@@ -65,9 +75,19 @@ All complete-release gates in PLAN.md remain open. Specifically: no allocation/
 lock audit of the entire audio call graph, extensive timing/transport tests,
 standalone parity, chords and long playback, complete project state and editorless
 recall, offline-load readiness, aux routing, user MIDI/automation mappings,
-full tabs/console/crescendo, ZIP/managed assets/collection/relinking, diagnostic
+full tabs/console/crescendo, multi-definition ZIP selection/collection/relinking, diagnostic
 manifest coverage and export tests, and portable distribution assembly.
 
 No native Windows build or validation has run. No colleague FL Studio test has
 run. macOS 13 compatibility and self-contained dynamic-library packaging have not
 been verified. Development build outputs are not distribution artifacts.
+
+## ZIP implementation follow-up
+
+Added Homebrew libarchive and used it for extraction after tests demonstrated that
+wxWidgets normalizes both names and file-type metadata. Failed intermediate tests
+were corrected and rerun; the final suite above passes. Libarchive is an additional
+system dependency not yet pinned/bundled for distribution. The current CMake cache
+sets CMAKE_PREFIX_PATH=/opt/homebrew/opt/libarchive; README documents the portable
+Homebrew prefix command. ZIP loading has not yet been exercised through REAPER's
+picker or with the full Barton ZIP.

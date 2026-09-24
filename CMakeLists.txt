@@ -17,6 +17,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(WAVPACK REQUIRED IMPORTED_TARGET wavpack)
 pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3f)
 find_package(ZLIB REQUIRED)
+find_package(LibArchive REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 set(GITHUB_PROJECT "GrandOrgue/grandorgue")
 set(FULL_VERSION "${PROJECT_VERSION}-OrganVST")
@@ -30,14 +31,14 @@ add_library(organ_engine STATIC ${GO_CORE_SOURCES} ${GO_ENGINE_SOURCES}
   "${GO_SOURCE}/src/grandorgue/midi/dialog-creator/GOMidiConfigDispatcher.cpp"
   "${GO_SOURCE}/submodules/ZitaConvolver/source/zita-convolver.cc"
   src/engine/HostServices.cpp)
-target_sources(organ_engine PRIVATE src/engine/OrganInstance.cpp)
+target_sources(organ_engine PRIVATE src/engine/OrganInstance.cpp src/assets/OrganAssets.cpp)
 target_include_directories(organ_engine PUBLIC
   "${GO_SOURCE}/src/core" "${GO_SOURCE}/src/grandorgue"
   "${GO_SOURCE}/submodules/ZitaConvolver/source"
   "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_compile_definitions(organ_engine PUBLIC ORGANVST_HOST=1)
 target_link_libraries(organ_engine PUBLIC ${wxWidgets_LIBRARIES}
-  PkgConfig::WAVPACK PkgConfig::FFTW ZLIB::ZLIB yaml-cpp::yaml-cpp)
+  PkgConfig::WAVPACK PkgConfig::FFTW ZLIB::ZLIB yaml-cpp::yaml-cpp LibArchive::LibArchive)
 add_executable(organ_probe src/tools/organ_probe.cpp)
 target_link_libraries(organ_probe PRIVATE organ_engine)
 target_compile_definitions(organ_probe PRIVATE GO_RESOURCE_DIR="${GO_SOURCE}")
@@ -64,3 +65,15 @@ if(ORGANVST_BUILD_PLUGIN)
   add_custom_command(TARGET OrganVST POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory
     "${GO_SOURCE}/sounds" "$<TARGET_FILE_DIR:OrganVST>/../Resources/sounds")
 endif()
+
+add_executable(asset_probe src/tools/asset_probe.cpp src/assets/OrganAssets.cpp)
+target_link_libraries(asset_probe PRIVATE ${wxWidgets_LIBRARIES} LibArchive::LibArchive)
+add_test(NAME asset_packs COMMAND ${Python3_EXECUTABLE}
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/assets_test.py $<TARGET_FILE:asset_probe>
+  ${CMAKE_CURRENT_BINARY_DIR}/asset-fixtures)
+add_executable(instance_probe src/tools/instance_probe.cpp)
+target_link_libraries(instance_probe PRIVATE organ_engine)
+target_compile_definitions(instance_probe PRIVATE GO_RESOURCE_DIR="${GO_SOURCE}")
+add_test(NAME independent_instances COMMAND ${Python3_EXECUTABLE}
+  ${CMAKE_CURRENT_SOURCE_DIR}/tests/instances_test.py $<TARGET_FILE:instance_probe>
+  ${CMAKE_CURRENT_BINARY_DIR}/instance-fixtures)

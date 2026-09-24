@@ -24,7 +24,8 @@ public:
 OrganInstance::OrganInstance(const std::filesystem::path& definition,
   const std::filesystem::path& data,const std::filesystem::path& resources,
   unsigned rate,std::function<bool(unsigned,const std::string&)> progress)
-  : config_("OrganVST",""),organ_(config_),path_(definition.string()),rate_(rate) {
+  : assets_(definition,data/"pack-cache",progress),
+    config_("OrganVST",""),organ_(config_),path_(assets_.definition().string()),rate_(rate) {
   // GOOrganController constructs its file store from the config resource path;
   // configure before loading by providing an explicit host resource override.
   config_.ConfigureForHost(wxString::FromUTF8(data.string()),wxString::FromUTF8(resources.string()));

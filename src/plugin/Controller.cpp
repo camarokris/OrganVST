@@ -22,6 +22,7 @@ public:
     context->drawString(controller.status.c_str(),CRect(24,62,970,90),kLeftText);
     context->setFillColor(CColor(64,78,87));context->drawRect(CRect(830,18,976,54),kDrawFilled);
     context->drawString("Load organ…",CRect(830,18,976,54));
+    context->drawString("Cancel load",CRect(680,18,820,54));
     context->drawString("Stops & Couplers",CRect(24,104,650,132),kLeftText);
     std::istringstream stream(controller.metadata);std::string name;unsigned index=0;
     while(std::getline(stream,name)) {
@@ -40,11 +41,14 @@ public:
   }
   VSTGUI::CMouseEventResult onMouseDown(VSTGUI::CPoint& p,const VSTGUI::CButtonState&) override {
     using namespace VSTGUI;
-    if(CRect(830,18,976,54).pointInside(p)) {
+    if(CRect(680,18,820,54).pointInside(p)) {
+      controller.cancelLoad();
+    } else if(CRect(830,18,976,54).pointInside(p)) {
       auto selector=VSTGUI::owned(CNewFileSelector::create(getFrame()));
       selector->setTitle("Load an organ definition");
       selector->addFileExtension(CFileExtension("Organ definition","organ"));
       selector->addFileExtension(CFileExtension("Organ definition","odf"));
+      selector->addFileExtension(CFileExtension("Organ ZIP pack","zip"));
       auto* target=&controller;target->addRef();
       selector->run([target](CNewFileSelector* selected) {
         if(selected->getNumSelectedFiles())target->load(selected->getSelectedFile(0));
@@ -102,6 +106,7 @@ void Controller::load(const std::string& path) {
   auto m=owned(allocateMessage());if(!m)return;m->setMessageID("load");
   m->getAttributes()->setBinary("path",path.data(),uint32(path.size()));sendMessage(m);
 }
+void Controller::cancelLoad() { auto m=owned(allocateMessage());if(m){m->setMessageID("cancel");sendMessage(m);} }
 void Controller::poll() { auto m=owned(allocateMessage());if(m){m->setMessageID("poll");sendMessage(m);} }
 void Controller::exportDiagnostics(const std::string& path) {
   auto m=owned(allocateMessage());if(!m)return;m->setMessageID("diagnostics");

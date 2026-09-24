@@ -23,7 +23,8 @@ Dependency revisions live in dependencies.json. Downloaded source belongs in .de
 track adaptation patches in patches/, never edit dependencies without recording a
 reproducible patch. Use CMake/Ninja with build/ as the output directory.
 Run `python3 scripts/bootstrap.py` to fetch exact dependency revisions.
-Build: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug`, then
+Build: `cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+-DCMAKE_PREFIX_PATH="$(brew --prefix libarchive)"` on this Mac, then
 `cmake --build build -j 6`. Test: `ctest --test-dir build --output-on-failure`.
 The plugin build runs Steinberg validator automatically. See README.md for
 prerequisites and local installation. Do not invent successful host tests.

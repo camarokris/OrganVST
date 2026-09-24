@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 #include "GOOrganController.h"
+#include "../assets/OrganAssets.h"
 #include <array>
 #include <atomic>
 #include <filesystem>
@@ -43,6 +44,7 @@ public:
   const std::string& path() const { return path_; }
   unsigned sampleRate() const { return rate_; }
 private:
+  OrganAssets assets_;
   GOConfig config_;
   HostOrgan organ_;
   std::vector<ControlInfo> controls_;

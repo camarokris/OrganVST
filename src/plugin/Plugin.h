@@ -57,6 +57,7 @@ public:
   Steinberg::tresult PLUGIN_API notify(Steinberg::Vst::IMessage*) override;
   void load(const std::string&);
   void poll();
+  void cancelLoad();
   void exportDiagnostics(const std::string&);
   std::string status="No organ loaded",metadata;
 };

@@ -97,6 +97,8 @@ and notarization require appropriate credentials.
 - Headless synthetic rendering passes at 44.1/48/96 kHz; Barton single-stop render
   succeeds. Steinberg validator passes 47 tests. REAPER scan, editor, fixture load,
   and visible stop toggle verified.
+- Managed single-definition ZIP loading and a cancellation button implemented.
+  Archive integrity/path/link checks and two-engine isolation tests pass.
 - Every complete-release acceptance gate remains open: standalone parity,
   real-time audit, full state/recall and offline readiness, configurable MIDI and
   automation, aux routing, complete UI/console, crescendo, asset management,
