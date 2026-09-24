@@ -60,10 +60,15 @@ def main():
     binary = bundle/'Contents/x86_64-win/OrganVST.vst3'
     if not binary.is_file():
         raise RuntimeError(f'Missing Windows x64 binary: {binary}')
+    engine = binary.parent/'OrganVST-engine.dll'
+    if not engine.is_file():
+        raise RuntimeError('Missing private engine DLL')
+    copy_dependencies(engine, engine.parent, args.runtime)
     copy_dependencies(binary, binary.parent, args.runtime)
     symbols = package/'debug-symbols'
     symbols.mkdir()
-    subprocess.run(['objcopy', '--only-keep-debug', str(binary), str(symbols/'OrganVST.debug')], check=True)
+    for executable in (binary, engine):
+        subprocess.run(['objcopy', '--only-keep-debug', str(executable), str(symbols/(executable.name+'.debug'))], check=True)
     # Keep the plugin unstripped so native crash inspection also works directly.
     validation = args.output/'validation'
     validation.mkdir()

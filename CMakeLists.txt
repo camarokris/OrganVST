@@ -79,14 +79,34 @@ if(ORGANVST_BUILD_PLUGIN)
     set_tests_properties(windows_ui_tasks PROPERTIES TIMEOUT 20)
   endif()
   set(public_sdk_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.deps/vst3sdk/public.sdk")
-  smtg_add_vst3plugin(OrganVST src/plugin/Entry.cpp src/plugin/Processor.cpp src/plugin/Controller.cpp src/plugin/Services.cpp)
+  set(organvst_plugin_sources src/plugin/Entry.cpp src/plugin/Processor.cpp src/plugin/Controller.cpp src/plugin/Services.cpp)
   if(MINGW)
-    # The SDK sets per-config output directories only for multi-config generators.
-    set_target_properties(OrganVST PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-      "${CMAKE_BINARY_DIR}/VST3/$<CONFIG>/OrganVST.vst3/Contents/x86_64-win")
+    set(organvst_binary_dir "${CMAKE_BINARY_DIR}/VST3/$<CONFIG>/OrganVST.vst3/Contents/x86_64-win")
+    add_library(OrganVSTEngine MODULE ${organvst_plugin_sources}
+      "${public_sdk_SOURCE_DIR}/source/main/dllmain.cpp")
+    target_include_directories(OrganVSTEngine PRIVATE src)
+    target_link_libraries(OrganVSTEngine PRIVATE organ_engine sdk vstgui_support)
+    set_target_properties(OrganVSTEngine PROPERTIES PREFIX "" OUTPUT_NAME "OrganVST-engine"
+      LIBRARY_OUTPUT_DIRECTORY "${organvst_binary_dir}")
+    get_filename_component(organvst_runtime_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    add_custom_command(TARGET OrganVSTEngine POST_BUILD
+      COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/scripts/stage_windows_runtime.py"
+        "${organvst_runtime_dir}" "$<TARGET_FILE:OrganVSTEngine>"
+        "$<TARGET_FILE:validator>" "$<TARGET_FILE:moduleinfotool>")
+    add_dependencies(OrganVSTEngine validator moduleinfotool)
+    smtg_add_vst3plugin(OrganVST src/platform/WindowsLoader.c)
+    get_target_property(loader_sources OrganVST SOURCES)
+    list(FILTER loader_sources EXCLUDE REGEX "/dllmain\\.cpp$")
+    set_property(TARGET OrganVST PROPERTY SOURCES "${loader_sources}")
+    set_target_properties(OrganVST PROPERTIES LINKER_LANGUAGE C
+      LIBRARY_OUTPUT_DIRECTORY "${organvst_binary_dir}")
+    target_link_options(OrganVST PRIVATE -static-libgcc)
+    add_dependencies(OrganVST OrganVSTEngine)
+  else()
+    smtg_add_vst3plugin(OrganVST ${organvst_plugin_sources})
+    target_include_directories(OrganVST PRIVATE src)
+    target_link_libraries(OrganVST PRIVATE organ_engine sdk vstgui_support)
   endif()
-  target_include_directories(OrganVST PRIVATE src)
-  target_link_libraries(OrganVST PRIVATE organ_engine sdk vstgui_support)
   if(APPLE)
     smtg_target_set_bundle(OrganVST BUNDLE_IDENTIFIER "org.organvst.instrument" COMPANY_NAME "OrganVST contributors")
   endif()
