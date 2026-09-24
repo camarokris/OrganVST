@@ -230,3 +230,36 @@ Great/Solo/Great 2T 1.6959 each, Pedal 2T 1.61881, Accomp 2T 2.81752,
 Acc Traps 1.9906, Toe Pistons 54.6234, Console Toys 4.03928. Each produced finite
 nonzero audio, followed by an ended tail. These are numerical sample-engine tests,
 not listening, exhaustive rank testing, FL Studio or standalone-parity acceptance.
+
+Final local code df6bbc4: SDK validator 47/47; CTest 6/6 in 2.63 seconds. Matching
+Mac bundle/dSYM are in dist/local-0.3.0 and the bundle is installed in the user's
+VST3 directory with verified ad-hoc signing. It still uses local Homebrew libraries.
+
+REAPER 7.80 at 48 kHz / 512 samples: inspected the 0.3 interface, selected Second
+and Play this division, then browsed Auxiliary without changing routing. Auxiliary
+correctly displayed notes 36–37 and its audition pitch could be stepped from 36 to
+37. Saved with editors closed, quit/restarted REAPER, and verified the restored
+route. Both saved V3 instances retained 134 controls; the first routed to Second,
+the other retained native channels. Later, an original channel-1 MIDI clip at
+pitch 60 showed received ch 1 / note 60 and visible meter output from Second with
+its Late voice enabled and First's default voice disabled. Returning to native
+channels made that same clip silent as expected. This is a visible host output
+check, not an audio listening assessment. The initial virtual-keyboard attempt
+produced no incoming event; the explicit MIDI clip supplied the verified input.
+
+Exported diagnostics through the editor and inspected the ZIP: it includes input
+channel/pitch observations, routing changes and auxiliary key ranges, excludes
+samples, and redacts the home directory prefix. Repeated editor closures remained
+stable. No FL Studio 0.3 results have yet been received.
+
+Windows run 36008635926 at df6bbc461171945f732405942d7b7a4eb2f7c1c4 succeeded:
+47/47 build-time validator tests, 7/7 CTests in 2.16 seconds, and 47/47 packaged
+validator tests with MSYS2 removed from PATH. Downloaded both artifacts and checked
+all 161 package manifest hashes. The ZIP has 29 DLLs and updated testing instructions;
+its corresponding-source ZIP has 12,411 entries. No private checklist, organ packs,
+local projects or colleague document is included. Download:
+https://github.com/camarokris/OrganVST/actions/runs/36008635926/artifacts/10811284176
+
+This completes the planned feedback repair and build delivery; it does not close
+the original full-release gates or establish that the colleague's FL Studio setup
+now passes. That retest remains required.

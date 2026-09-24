@@ -137,3 +137,8 @@ validation. Version 0.2 colleague FL Studio retesting remains outstanding.
 The colleague's 0.2 Barton retest reports improved organization and no crashes but
 silent divisions. See docs/SILENT_DIVISIONS_PLAN.md for input routing, short-keyboard
 audition, diagnostic and regression-test work. FL Studio causality is not yet proven.
+
+Version 0.3 is implemented and tested locally; REAPER input routing/recall and
+all ten representative Barton division auditions pass. Native Windows run
+36008635926 at df6bbc4 succeeded, including packaged validation. New Mac and
+Windows builds are available for colleague retesting. See docs/VALIDATION.md.

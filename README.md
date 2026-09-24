@@ -113,8 +113,8 @@ no Barton audio or artwork is tracked.
 
 ## Windows CI alpha builds
 
-[Download the validated Windows alpha](https://github.com/camarokris/OrganVST/actions/runs/35960861796/artifacts/10792935114)
-(version 0.2.0, build `a98467d`; GitHub sign-in required, artifact retention 30 days).
+[Download the validated Windows alpha](https://github.com/camarokris/OrganVST/actions/runs/36008635926/artifacts/10811284176)
+(version 0.3.0, build `df6bbc4`; GitHub sign-in required, artifact retention 30 days).
 
 The Windows VST3 alpha GitHub Actions workflow uses a native Windows 2022 runner
 and the MSYS2 UCRT64 toolchain. It builds pinned engine/SDK sources, runs synthetic

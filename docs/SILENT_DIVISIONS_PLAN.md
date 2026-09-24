@@ -28,5 +28,7 @@ Implementation complete. Local CTest 6/6 and SDK validator 47/47 pass. Actual
 VST3 tests cover channel-1 rerouting, stale/invalid routes, held-note release,
 low-key audition and V2/V3 recall. Representative auditions from all ten Barton
 divisions produced finite nonzero audio and ended their tails. This establishes
-engine output, not the colleague's exact host failure cause. Mac UI inspection
-and native Windows packaging/validation are in progress.
+engine output, not the colleague's exact host failure cause. REAPER UI, saved
+routing, channel-1 clip playback and diagnostic export checks passed. Windows run
+36008635926 at df6bbc4 passed native compilation, tests and packaged validation.
+Both builds are available; colleague FL Studio 0.3 retesting remains outstanding.
