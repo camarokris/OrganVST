@@ -148,3 +148,8 @@ Windows builds are available for colleague retesting. See docs/VALIDATION.md.
 The colleague reports 0.3 works as expected in FL Studio; remaining requests are
 simultaneous divisions, separated categories, tremulants as a tab and pedals.
 See docs/LAYERS_PEDALS_PLAN.md. This does not constitute a full FL Studio matrix pass.
+
+0.4 follow-up: local REAPER tabs, selected layers, pedal capture/recall and two-instance
+editorless project recall verified. Controller expression parameter restoration
+covered by actual VST3 test. Final local validator 47/47 and CTest 7/7 passed;
+Windows CI and colleague 0.4 FL Studio retest remain pending.

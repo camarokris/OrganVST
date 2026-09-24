@@ -31,6 +31,7 @@ int main(int argc,char** argv) {
     auto& factory=module->getFactory();
     for(const auto& info:factory.classInfos())if(info.category()==kVstAudioEffectClass) {
       auto provider=owned(new PlugProvider(factory,info));check(provider->initialize(),"Plugin initialization failed");
+      auto controller=provider->getControllerPtr();
       auto component=provider->getComponentPtr();FUnknownPtr<IAudioProcessor> processor(component);FUnknownPtr<IConnectionPoint> connection(component);
       check(processor&&connection,"Missing processor/message interface");
       ProcessSetup setup{kRealtime,kSample32,127,48000};check(processor->setupProcessing(setup)==kResultOk,"setup failed");
@@ -39,7 +40,7 @@ int main(int argc,char** argv) {
       std::array<float,127> l{},r{};float* channels[]{l.data(),r.data()};AudioBusBuffers output{};output.numChannels=2;output.channelBuffers32=channels;
       EventList events;ProcessData data{};data.processMode=kRealtime;data.symbolicSampleSize=kSample32;data.numSamples=127;data.numOutputs=1;data.outputs=&output;data.inputEvents=&events;
       auto process=[&](){check(processor->process(data)==kResultOk,"process failed");events.clear();double energy=0;for(unsigned i=0;i<127;++i){check(std::isfinite(l[i])&&std::isfinite(r[i]),"Non-finite audio");energy+=l[i]*l[i]+r[i]*r[i];}return energy;};
-      auto restore=[&](const ProjectState& state){MemoryStream stream;check(writeProjectState(&stream,state),"state write failed");stream.seek(0,IBStream::kIBSeekSet,nullptr);check(component->setState(&stream)==kResultOk,"state restore failed");};
+      auto restore=[&](const ProjectState& state){MemoryStream stream;check(writeProjectState(&stream,state),"state write failed");stream.seek(0,IBStream::kIBSeekSet,nullptr);check(component->setState(&stream)==kResultOk,"state restore failed");stream.seek(0,IBStream::kIBSeekSet,nullptr);check(controller->setComponentState(&stream)==kResultOk,"controller restore failed");};
       auto waitLoaded=[&](){for(unsigned i=0;i<5000;++i){process();if(saved(component).controls.size()==134)return;std::this_thread::sleep_for(std::chrono::milliseconds(2));}throw std::runtime_error("Organ load timeout");};
       ProjectState state;state.path=argv[2];restore(state);waitLoaded();process();
       auto initial=saved(component);check(initial.controls[0].second,"Plugin cleared authored default");
@@ -87,7 +88,7 @@ int main(int argc,char** argv) {
       action("pedal",0,67);process();state=saved(component);
       check(state.layerMask==3&&state.programmed==((1u<<16)|1)&&state.enclosures[0].second==67,"Layer/pedal/crescendo state incomplete");
       // Replace the live engine using its full keyed registration, without an editor.
-      restore(state);for(unsigned i=0;i<1000;++i){process();std::this_thread::sleep_for(std::chrono::milliseconds(2));if(command(2,131,true)==kResultOk)break;}
+      restore(state);check(std::abs(controller->getParamNormalized(10)-67.0/127)<1e-9,"Controller expression recall failed");check(controller->getParamNormalized(11)==1.0,"Unused expression reset failed");for(unsigned i=0;i<1000;++i){process();std::this_thread::sleep_for(std::chrono::milliseconds(2));if(command(2,131,true)==kResultOk)break;}
       check(command(1,131,false)==kResultFalse,"Previous organ generation accepted");process();
       check(saved(component).controls[131].second,"Editorless registration recall failed");
       check(saved(component).layerMask==3,"Editorless input routing recall failed");

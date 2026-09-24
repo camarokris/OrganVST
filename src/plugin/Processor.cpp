@@ -330,6 +330,13 @@ tresult PLUGIN_API Controller::setComponentState(IBStream* stream) {
   ProjectState state;if(!readProjectState(stream,state))return kResultFalse;
   setParamNormalized(gainId,state.gain);
   setParamNormalized(crescendoId,state.crescendo);
+  for(unsigned i=0;i<maxEnclosures;++i) {
+    const auto key="Enclosure"+std::to_string(i);
+    double value=1.0;
+    for(const auto& enclosure:state.enclosures)
+      if(enclosure.first==key) {value=enclosure.second/127.0;break;}
+    setParamNormalized(expressionBase+i,value);
+  }
   return kResultOk;
 }
 }

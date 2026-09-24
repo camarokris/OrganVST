@@ -294,3 +294,18 @@ uses atomic storage; serialization and diagnostic file I/O stay off the audio
 thread. The full pre-existing upstream real-time audit remains open. The new
 32-step crescendo is plugin-owned and does not import standalone crescendo banks.
 Local interactive host checks and native Windows delivery follow below.
+
+REAPER 7.80 on the same Mac, 48 kHz/512 frames: Barton displayed separate Stops,
+Couplers and Tremulants tabs; its four tremulants no longer appeared as a division.
+Layered Great and Solo, enabled their Tuba stops, set Solo expression to 67/127,
+and captured quiet step 1 and loud step 32. Moving the crescendo cleared/restored
+the visible stops. Saved, quit and reopened REAPER with both editors closed, then
+saved again. Decoding the resulting host project verified both 170-key captures,
+layer mask 6, both enabled Tuba stops and expression values 127/67. The second
+synthetic instance retained native routing, expression 127 and no captured steps.
+This verifies host state recall and UI behavior, not a listening comparison.
+
+Final controller-state review also added restoration of expression automation
+values before opening the editor, including default reset for absent enclosures.
+The actual VST3 probe verifies this alongside engine recall. Final local rebuild:
+validator 47/47; CTest 7/7 in 2.86 seconds.
