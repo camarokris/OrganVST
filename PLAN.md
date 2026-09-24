@@ -110,6 +110,9 @@ See docs/VALIDATION.md for actual verification results.
 
 ## GitHub and Windows CI follow-up
 
-Windows x64 CI and packaging are being added. A successful native run is required
-before describing the Windows artifact as ready for colleague testing. Keep FL
-Studio results pending until the colleague actually runs the checklist.
+Published the authorized public repository at https://github.com/camarokris/OrganVST.
+Windows x64 CI and packaging are configured, including native tests, SDK validation,
+private runtime libraries, symbols, source, licenses, and downloadable artifacts.
+Native compilation succeeds, but the first runs exposed loader/runtime failures;
+validation and packaging must pass before a Windows artifact is ready for colleague
+testing. Keep FL Studio results pending until the colleague runs the checklist.

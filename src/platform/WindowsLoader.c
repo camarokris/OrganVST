@@ -19,39 +19,6 @@ BOOL WINAPI DllMain(HINSTANCE module,DWORD reason,LPVOID reserved) {
   if(reason==DLL_PROCESS_ATTACH) {ownModule=module;DisableThreadLibraryCalls(module);}
   return TRUE;
 }
-/* On a failed load, report the exact unresolved import without calling any
- * plugin entry point. This only runs during module initialization failure. */
-static void diagnoseImports(const wchar_t* path, unsigned depth) {
-  if(depth>8)return;
-  HMODULE image=LoadLibraryExW(path,NULL,DONT_RESOLVE_DLL_REFERENCES);
-  if(!image)return;
-  BYTE* base=(BYTE*)image;
-  IMAGE_DOS_HEADER* dos=(IMAGE_DOS_HEADER*)base;
-  IMAGE_NT_HEADERS* nt=(IMAGE_NT_HEADERS*)(base+dos->e_lfanew);
-  DWORD imports=nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
-  if(imports)for(IMAGE_IMPORT_DESCRIPTOR* item=(IMAGE_IMPORT_DESCRIPTOR*)(base+imports);item->Name;++item) {
-    const char* name=(const char*)(base+item->Name);
-    wchar_t dependency[32768];
-    wcscpy(dependency,path);
-    wchar_t* slash=wcsrchr(dependency,L'\\');
-    if(!slash)continue;
-    MultiByteToWideChar(CP_ACP,0,name,-1,slash+1,(int)(32768-(slash+1-dependency)));
-    HMODULE module=LoadLibraryExW(dependency,NULL,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-    if(!module)module=LoadLibraryExA(name,NULL,LOAD_LIBRARY_SEARCH_SYSTEM32);
-    if(!module) {
-      fprintf(stderr,"OrganVST dependency failed: %s (%lu)\n",name,(unsigned long)GetLastError());
-      diagnoseImports(dependency,depth+1);
-      continue;
-    }
-    if(item->OriginalFirstThunk)for(IMAGE_THUNK_DATA* thunk=(IMAGE_THUNK_DATA*)(base+item->OriginalFirstThunk);thunk->u1.AddressOfData;++thunk) {
-      if(IMAGE_SNAP_BY_ORDINAL(thunk->u1.Ordinal))continue;
-      const char* symbol=(const char*)((IMAGE_IMPORT_BY_NAME*)(base+thunk->u1.AddressOfData))->Name;
-      if(!GetProcAddress(module,symbol))fprintf(stderr,"OrganVST missing import: %s!%s\n",name,symbol);
-    }
-    FreeLibrary(module);
-  }
-  FreeLibrary(image);
-}
 static bool loadEngine(void) {
   if(engine)return true;
   wchar_t path[32768];
@@ -60,11 +27,29 @@ static bool loadEngine(void) {
   wchar_t* slash=wcsrchr(path,L'\\');
   if(!slash || (size_t)(slash-path)+32>=32768)return false;
   wcscpy(slash+1,L"OrganVST-engine.dll");
+  /* wxWidgets imports Common Controls v6 APIs. A DLL cannot rely on the
+   * host executable opting into that assembly (the SDK tools do not). */
+  wchar_t loaderPath[32768];
+  GetModuleFileNameW(ownModule,loaderPath,32768);
+  ACTCTXW context={0};
+  context.cbSize=sizeof(context);
+  context.dwFlags=ACTCTX_FLAG_RESOURCE_NAME_VALID;
+  context.lpSource=loaderPath;
+  context.lpResourceName=MAKEINTRESOURCEW(2);
+  HANDLE activation=CreateActCtxW(&context);
+  ULONG_PTR cookie=0;
+  if(activation==INVALID_HANDLE_VALUE || !ActivateActCtx(activation,&cookie)) {
+    fprintf(stderr,"OrganVST: cannot activate Common Controls v6 (%lu)\n",(unsigned long)GetLastError());
+    if(activation!=INVALID_HANDLE_VALUE)ReleaseActCtx(activation);
+    return false;
+  }
   engine=LoadLibraryExW(path,NULL,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+  DWORD loadError=GetLastError();
+  DeactivateActCtx(0,cookie);
+  ReleaseActCtx(activation);
   if(!engine) {
-    DWORD error=GetLastError();
+    DWORD error=loadError;
     fprintf(stderr,"OrganVST: private engine load failed, Windows error %lu\n",(unsigned long)error);
-    diagnoseImports(path,0);
     return false;
   }
   engineInit=(Lifecycle)GetProcAddress(engine,"InitDll");
